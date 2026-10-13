@@ -1,6 +1,5 @@
 import {
   Difficulty,
-  GameType,
   PlayerType,
   Tick,
   UnitInfo,
@@ -86,21 +85,7 @@ const OVERTIME_DEFAULTS = {
 
 export class Config {
   private unitInfoCache = new Map<UnitType, UnitInfo>();
-  constructor(
-    protected _gameConfig: GameConfig,
-    private _isReplay: boolean,
-    public readonly listed: boolean = false,
-    private _spectator: boolean = false,
-  ) {}
-
-  isReplay(): boolean {
-    return this._isReplay;
-  }
-
-  /** True when the player joined the lobby as a spectator (watch-only). */
-  isIntentionalSpectator(): boolean {
-    return this._spectator;
-  }
+  constructor(protected _gameConfig: GameConfig) {}
 
   traitorDefenseDebuff(): number {
     return 0.5;
@@ -265,13 +250,6 @@ export class Config {
     return info;
   }
 
-  private hasInfiniteTroopsFor(player: PlayerLike): boolean {
-    if (this.infiniteTroops()) return true;
-    return (
-      (this._gameConfig.hostCheats?.infiniteTroops ?? false) &&
-      player.isLobbyCreator()
-    );
-  }
   deletionMarkDuration(): Tick {
     return 30 * 10;
   }
@@ -314,13 +292,7 @@ export class Config {
     return 0.8;
   }
   numSpawnPhaseTurns(): number {
-    if (this._gameConfig.gameType === GameType.Singleplayer) {
-      return 100;
-    }
-    if (this.isRandomSpawn()) {
-      return 150;
-    }
-    return 200;
+    return 100;
   }
 
   maxTroops(player: PlayerLike): number {
@@ -341,7 +313,7 @@ export class Config {
           .reduce((a, b) => a + b, 0) * this.cityTroopIncrease()
       : 0;
     const maxTroops =
-      player.type() === PlayerType.Human && this.hasInfiniteTroopsFor(player)
+      player.type() === PlayerType.Human && this.infiniteTroops()
         ? 1_000_000_000
         : 2 * (pow(player.numTilesOwned(), 0.6) * 1000 + 50000) + cityTroops;
 

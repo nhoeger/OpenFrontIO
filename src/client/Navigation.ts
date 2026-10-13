@@ -109,7 +109,7 @@ export function initNavigation() {
       if (!pageId) return;
 
       // showPage() closes the currently visible modal, so respect its
-      // close-confirmation guard first (e.g. the leave-lobby prompt).
+      // close-confirmation guard first (e.g. an unsaved-changes prompt).
       const visibleModal = document.querySelector(
         ".page-content:not(.hidden)",
       ) as any;
@@ -147,7 +147,7 @@ export function initNavigation() {
 
           if (isOnMain || isOnPageContent) {
             // Find the open modal and call its close() method instead of showPage directly
-            // This ensures proper cleanup (like websocket disconnection)
+            // This ensures proper cleanup (like the onClose callback)
             const openModal = document.querySelector(
               ".page-content:not(.hidden)",
             ) as any;
@@ -159,13 +159,6 @@ export function initNavigation() {
                 !(await openModal.confirmBeforeClose())
               ) {
                 return;
-              }
-              // Call leaveLobby or closeAndLeave first if it exists (for lobby modals)
-              if (typeof openModal.leaveLobby === "function") {
-                openModal.leaveLobby();
-              } else if (typeof openModal.closeAndLeave === "function") {
-                openModal.closeAndLeave();
-                return; // closeAndLeave already calls close()
               }
               openModal.close();
             } else {

@@ -78,7 +78,7 @@ function makeGame() {
   return {
     myPlayer: () => my,
     config: () => ({
-      gameConfig: () => ({ gameType: GameType.Public }),
+      gameConfig: () => ({ gameType: GameType.Singleplayer }),
       isReplay: () => false,
     }),
     gameOver: () => false,
@@ -224,13 +224,12 @@ describe("PlayerPanel - action buttons follow PlayerActions capability flags", (
     expect(labels).toContain("player_panel.send_alliance");
   });
 
-  test("no capability flags renders only chat and the start-trade toggle", () => {
+  test("no capability flags renders only the start-trade toggle", () => {
     (panel as any).actions = { interaction: {} };
 
     (panel as any).renderActions(my, other);
 
     const labels = renderedLabels();
-    expect(labels).toContain("player_panel.chat");
     expect(labels).toContain("player_panel.start_trade");
     expect(labels).not.toContain("player_panel.emotes");
     expect(labels).not.toContain("player_panel.target");

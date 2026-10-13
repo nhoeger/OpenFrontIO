@@ -5,11 +5,7 @@ vi.mock("../src/client/Utils", () => ({
 }));
 
 import {
-  MAX_ACCOUNT_USERNAME_LENGTH,
-  MAX_CLAN_TAG_LENGTH,
   MAX_USERNAME_LENGTH,
-  validateAccountUsername,
-  validateClanTag,
   validateUsername,
 } from "../src/client/validations/username";
 
@@ -40,80 +36,6 @@ describe("username.ts functions", () => {
     });
     test("accepts allowed Unicode like ü", () => {
       const res = validateUsername("Üser");
-      expect(res.isValid).toBe(true);
-    });
-  });
-
-  describe("validateAccountUsername", () => {
-    test("rejects too short", () => {
-      const res = validateAccountUsername("ab");
-      expect(res.isValid).toBe(false);
-      expect(res.error).toContain("username.too_short");
-    });
-
-    test("rejects too long", () => {
-      const res = validateAccountUsername(
-        "a".repeat(MAX_ACCOUNT_USERNAME_LENGTH + 1),
-      );
-      expect(res.isValid).toBe(false);
-      expect(res.error).toContain("username.too_long");
-    });
-
-    test("rejects dots (the dot separates base from suffix)", () => {
-      const res = validateAccountUsername("bob.4821");
-      expect(res.isValid).toBe(false);
-      expect(res.error).toBe("username.account_invalid_chars");
-    });
-
-    test("rejects unicode", () => {
-      expect(validateAccountUsername("Üser").isValid).toBe(false);
-    });
-
-    test("accepts letters, digits, underscore, and hyphen", () => {
-      expect(validateAccountUsername("Good_Name-123").isValid).toBe(true);
-    });
-
-    test("accepts single interior spaces", () => {
-      expect(validateAccountUsername("bob smith").isValid).toBe(true);
-      expect(validateAccountUsername("a b c").isValid).toBe(true);
-    });
-
-    test("rejects consecutive spaces", () => {
-      expect(validateAccountUsername("bob  smith").isValid).toBe(false);
-    });
-
-    test("trims before validating length", () => {
-      expect(validateAccountUsername("  bob  ").isValid).toBe(true);
-      expect(validateAccountUsername("  ab  ").isValid).toBe(false);
-    });
-  });
-
-  describe("validateClanTag", () => {
-    test("accepts empty clan tag", () => {
-      const res = validateClanTag("");
-      expect(res.isValid).toBe(true);
-    });
-
-    test("rejects too short clan tag", () => {
-      const res = validateClanTag("A");
-      expect(res.isValid).toBe(false);
-      expect(res.error).toBe("username.tag_too_short");
-    });
-
-    test("rejects invalid clan tag characters", () => {
-      const res = validateClanTag("A!");
-      expect(res.isValid).toBe(false);
-      expect(res.error).toBe("username.tag_invalid_chars");
-    });
-
-    test("rejects too long clan tag", () => {
-      const res = validateClanTag("A".repeat(MAX_CLAN_TAG_LENGTH + 1));
-      expect(res.isValid).toBe(false);
-      expect(res.error).toBe("username.tag_too_long");
-    });
-
-    test("accepts valid clan tag", () => {
-      const res = validateClanTag("AB12");
       expect(res.isValid).toBe(true);
     });
   });

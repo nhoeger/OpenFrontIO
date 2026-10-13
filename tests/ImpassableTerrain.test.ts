@@ -104,7 +104,7 @@ async function setupImpassableGame(
     instantBuild: true,
     randomSpawn: false,
   };
-  const config = new TestConfig(gameConfig, false);
+  const config = new TestConfig(gameConfig);
 
   const game = createGame(humans, [], gameMap, miniGameMap, config);
   game.endSpawnPhase();

@@ -64,11 +64,14 @@ function findTestTiles(game: Game) {
   return { landTileA, nudgeTile, landTileB, oceanTile };
 }
 
+// A singleplayer human's spawn ends the spawn phase at once, so the spawn
+// mechanics that need several spawns in one phase (re-picks, collisions) run
+// on players of type Bot, whose spawns leave the phase open.
 describe("SpawnExecution spawn tile stat", () => {
   // playerInfo() gives a null clientID, and stats are keyed by clientID, so a
-  // human with a client is built by hand here.
+  // player with a client is built by hand here.
   const human = (name: string) =>
-    new PlayerInfo(name, PlayerType.Human, `client_${name}`, name);
+    new PlayerInfo(name, PlayerType.Bot, `client_${name}`, name);
 
   const spawnAt = (game: Game, info: PlayerInfo, tile?: TileRef) => {
     const exec = new SpawnExecution("test-game", info, tile, true);
@@ -79,7 +82,7 @@ describe("SpawnExecution spawn tile stat", () => {
   async function spawnPhaseGame(infos: PlayerInfo[], randomSpawn = false) {
     return setup(
       "ocean_and_land",
-      { gameType: GameType.Public, randomSpawn },
+      { gameType: GameType.Singleplayer, randomSpawn },
       infos,
       undefined,
       undefined,
@@ -123,7 +126,7 @@ describe("SpawnExecution spawn tile stat", () => {
   });
 
   it("records nothing for a player without a client", async () => {
-    const noClient = playerInfo("NoClient", PlayerType.Human);
+    const noClient = playerInfo("NoClient", PlayerType.Bot);
     const game = await spawnPhaseGame([noClient]);
     const { landTileA } = findTestTiles(game);
 
@@ -136,10 +139,10 @@ describe("SpawnExecution spawn tile stat", () => {
 
 describe("SpawnExecution Transactional Rollback & Self-Collision", () => {
   it("rolls back to previous tiles and spawn center on invalid placement (ocean)", async () => {
-    const p1Info = playerInfo("Player 1", PlayerType.Human);
+    const p1Info = playerInfo("Player 1", PlayerType.Bot);
     const game = await setup(
       "ocean_and_land",
-      { gameType: GameType.Public },
+      { gameType: GameType.Singleplayer },
       [p1Info],
       undefined,
       undefined,
@@ -176,11 +179,11 @@ describe("SpawnExecution Transactional Rollback & Self-Collision", () => {
   });
 
   it("rolls back when spawn target collides with opponent territory", async () => {
-    const p1Info = playerInfo("P1", PlayerType.Human);
-    const p2Info = playerInfo("P2", PlayerType.Human);
+    const p1Info = playerInfo("P1", PlayerType.Bot);
+    const p2Info = playerInfo("P2", PlayerType.Bot);
     const game = await setup(
       "ocean_and_land",
-      { gameType: GameType.Public },
+      { gameType: GameType.Singleplayer },
       [p1Info, p2Info],
       undefined,
       undefined,
@@ -212,10 +215,10 @@ describe("SpawnExecution Transactional Rollback & Self-Collision", () => {
   });
 
   it("succeeds when nudging or re-clicking own spawn without self-collision", async () => {
-    const p1Info = playerInfo("P1", PlayerType.Human);
+    const p1Info = playerInfo("P1", PlayerType.Bot);
     const game = await setup(
       "ocean_and_land",
-      { gameType: GameType.Public },
+      { gameType: GameType.Singleplayer },
       [p1Info],
       undefined,
       undefined,
@@ -240,10 +243,10 @@ describe("SpawnExecution Transactional Rollback & Self-Collision", () => {
   });
 
   it("spawns a new player with 0 initial tiles normally", async () => {
-    const p1Info = playerInfo("P1", PlayerType.Human);
+    const p1Info = playerInfo("P1", PlayerType.Bot);
     const game = await setup(
       "ocean_and_land",
-      { gameType: GameType.Public },
+      { gameType: GameType.Singleplayer },
       [p1Info],
       undefined,
       undefined,
@@ -265,10 +268,10 @@ describe("SpawnExecution Transactional Rollback & Self-Collision", () => {
   });
 
   it("handles edge case of invalid spawn when player has no spawn, allowing later valid spawn", async () => {
-    const p1Info = playerInfo("P1", PlayerType.Human);
+    const p1Info = playerInfo("P1", PlayerType.Bot);
     const game = await setup(
       "ocean_and_land",
-      { gameType: GameType.Public },
+      { gameType: GameType.Singleplayer },
       [p1Info],
       undefined,
       undefined,

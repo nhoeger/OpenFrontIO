@@ -1,4 +1,3 @@
-import { AllPlayersStats } from "@openfront/engine-api/Schemas";
 import {
   ALLIANCE_INDEX_LONGEST_HELD,
   ATTACK_INDEX_MAX_RECV,
@@ -9,18 +8,6 @@ import {
   PlayerStatsSchema,
   TILE_INDEX_DRAWDOWN_TROUGH,
 } from "@openfront/engine-api/StatsSchemas";
-import {
-  PlayerStatsLeafSchema,
-  PlayerStatsTreeSchema,
-} from "@openfront/shared/ApiSchemas";
-import { ClientSendWinnerMessage } from "@openfront/shared/WireSchemas";
-import {
-  createGameWireContext,
-  decodeClientMessage,
-  encodeClientMessage,
-} from "@openfront/shared/ZbinWire";
-
-const CLIENT = "AbCdEfGh";
 
 function testPlayerSchema(
   json: string,
@@ -76,124 +63,6 @@ describe("StatsSchema", () => {
   });
 });
 
-describe("PlayerStatsLeafSchema", () => {
-  test("parses optional legacy recent game IDs and outcomes", () => {
-    const result = PlayerStatsLeafSchema.parse({
-      wins: "1",
-      losses: "1",
-      total: "2",
-      stats: {},
-      recentGames: [
-        { gameId: "102", won: true },
-        { gameId: "101", won: false },
-      ],
-    });
-
-    expect(result.recentGames).toEqual([
-      { gameId: 102n, won: true },
-      { gameId: 101n, won: false },
-    ]);
-  });
-
-  test("null stat values coerce to 0n", () => {
-    const result = PlayerStatsLeafSchema.safeParse({
-      wins: "0",
-      losses: "1",
-      total: "1",
-      stats: { attacks: [null, null, null], betrayals: null },
-    });
-    expect(result.success).toBe(true);
-  });
-
-  test("missing required field (wins) still fails — undefined is not coerced", () => {
-    const result = PlayerStatsLeafSchema.safeParse({
-      losses: "1",
-      total: "1",
-      stats: {},
-    });
-    expect(result.success).toBe(false);
-  });
-});
-
-describe("PlayerStatsTreeSchema", () => {
-  test("parses recent aggregates for every selectable filter level", () => {
-    const result = PlayerStatsTreeSchema.parse({
-      recent: {
-        all: { games: 100, wins: 64 },
-        Public: {
-          all: { games: 100, wins: 65 },
-          Medium: { games: 100, wins: 65 },
-          "Free For All": {
-            all: { games: 100, wins: 66 },
-            Medium: { games: 100, wins: 66 },
-          },
-        },
-        Ranked: {
-          all: { games: 100, wins: 67 },
-          "1v1": { games: 100, wins: 68 },
-        },
-      },
-    });
-
-    expect(result.recent?.all).toEqual({ games: 100, wins: 64 });
-    expect(result.recent?.Public?.Medium).toEqual({
-      games: 100,
-      wins: 65,
-    });
-    expect(result.recent?.Public?.["Free For All"]?.all).toEqual({
-      games: 100,
-      wins: 66,
-    });
-    expect(result.recent?.Ranked?.["1v1"]).toEqual({
-      games: 100,
-      wins: 68,
-    });
-  });
-
-  test("rejects a recent aggregate above the 100-game window", () => {
-    expect(() =>
-      PlayerStatsTreeSchema.parse({
-        recent: { all: { games: 101, wins: 64 } },
-      }),
-    ).toThrow();
-  });
-
-  test("rejects a recent node missing its all aggregate", () => {
-    expect(() =>
-      PlayerStatsTreeSchema.parse({
-        recent: { all: { games: 100, wins: 64 }, Public: { Medium: {} } },
-      }),
-    ).toThrow();
-  });
-
-  test("accepts a ranked type this build does not know", () => {
-    const leaf = { wins: "1", losses: "2", total: "3", stats: {} };
-    const result = PlayerStatsTreeSchema.parse({
-      Ranked: { "1v1": leaf, ffa: leaf },
-    });
-
-    expect(result.Ranked?.["1v1"]?.total).toBe(3n);
-    expect(result.Ranked?.ffa?.total).toBe(3n);
-  });
-
-  test("accepts Humans Vs Nations as a separate profile stats mode", () => {
-    const result = PlayerStatsTreeSchema.parse({
-      Public: {
-        "Humans Vs Nations": {
-          Hard: {
-            wins: "1",
-            losses: "2",
-            total: "3",
-            stats: {},
-          },
-        },
-      },
-    });
-
-    expect(result.Public?.["Humans Vs Nations"]?.Hard?.total).toBe(3n);
-  });
-});
-
 describe("PlayerStats new fields", () => {
   it("parses tiles, alliances and peakTroops", () => {
     const parsed = PlayerStatsSchema.parse({
@@ -242,21 +111,6 @@ describe("PlayerStats new fields", () => {
   it("parses a spawn tile", () => {
     const parsed = PlayerStatsSchema.parse({ spawnTile: 123456 });
     expect(parsed?.spawnTile).toBe(123456);
-  });
-
-  it("carries a spawn tile over the binary wire", () => {
-    const stats: AllPlayersStats = {
-      [CLIENT]: { attacks: [1n], donations: [2n], spawnTile: 98765 },
-    };
-    const players = [{ clientID: CLIENT }];
-    const decoded = decodeClientMessage(
-      encodeClientMessage(
-        { type: "winner", winner: ["player", CLIENT], allPlayersStats: stats },
-        createGameWireContext(players),
-      ),
-      createGameWireContext(players),
-    ) as ClientSendWinnerMessage;
-    expect(decoded.allPlayersStats[CLIENT]).toEqual(stats[CLIENT]);
   });
 
   it("parses a record with none of the new fields", () => {

@@ -1,4 +1,3 @@
-import { GameType } from "@openfront/engine-api/game/GameTypes";
 import { zPlayerRef } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { z } from "zod";
 import { Execution, Game, Player } from "../game/Game";
@@ -24,12 +23,7 @@ export class PauseExecution implements Execution {
   }
 
   init(game: Game, ticks: number): void {
-    if (
-      this.player.isLobbyCreator() ||
-      game.config().gameConfig().gameType === GameType.Singleplayer
-    ) {
-      game.setPaused(this.paused);
-    }
+    game.setPaused(this.paused);
   }
 
   tick(ticks: number): void {}

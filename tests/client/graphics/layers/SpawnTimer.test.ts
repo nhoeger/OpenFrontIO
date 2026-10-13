@@ -32,7 +32,7 @@ describe("SpawnTimer team ratios", () => {
     timer.game = {
       config: () => ({
         gameConfig: () => ({
-          gameType: GameType.Public,
+          gameType: GameType.Singleplayer,
           gameMode: GameMode.Team,
         }),
       }),
@@ -61,7 +61,7 @@ describe("SpawnTimer team ratios", () => {
     timer.game = {
       config: () => ({
         gameConfig: () => ({
-          gameType: GameType.Public,
+          gameType: GameType.Singleplayer,
           gameMode: GameMode.Team,
         }),
       }),

@@ -1,7 +1,6 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
   AllPlayers,
-  GameType,
   PlayerActions,
   PlayerProfile,
   PlayerType,
@@ -9,19 +8,11 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { Emoji, flattenedEmojiTable } from "@openfront/engine-api/Schemas";
 import { renderNumber, renderTroops } from "@openfront/engine-lib/Format";
-import type { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
-import {
-  type LevelBadge,
-  packLevelBadge,
-} from "@openfront/shared/LevelBadgeWire";
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import Countries from "resources/countries.json" with { type: "json" };
-import { fetchLobbyListed, getUserMe } from "../../Api";
-import "../../components/EquippedCosmeticsRow";
-import "../../components/LevelBadge";
 import { actionButton } from "../../components/ui/ActionButton";
 import "../../components/ui/Divider";
 import { Controller } from "../../Controller";
@@ -30,9 +21,7 @@ import {
   MouseUpEvent,
   SwapRocketDirectionEvent,
 } from "../../InputHandler";
-import { lobbyLevelBadge } from "../../LobbyRosterLevels";
 import {
-  PlayerReportedEvent,
   SendAllianceRequestIntentEvent,
   SendBreakAllianceIntentEvent,
   SendEmbargoAllIntentEvent,
@@ -42,37 +31,19 @@ import {
 } from "../../Transport";
 import { UIState } from "../../UIState";
 import { UserSettings } from "../../UserSettings";
-import { renderDuration, showToast, translateText } from "../../Utils";
+import { renderDuration, translateText } from "../../Utils";
 import { GameView, PlayerView } from "../../view";
-import { ChatModal } from "./ChatModal";
 import { EmojiTable } from "./EmojiTable";
-import "./PlayerModerationModal";
-import "./PlayerReportModal";
 import "./SendResourceModal";
 const allianceIcon = assetUrl("images/AllianceIconWhite.svg");
-const chatIcon = assetUrl("images/ChatIconWhite.svg");
 const donateGoldIcon = assetUrl("images/DonateGoldIconWhite.svg");
 const donateTroopIcon = assetUrl("images/DonateTroopIconWhite.svg");
 const emojiIcon = assetUrl("images/EmojiIconWhite.svg");
-const reportIcon = assetUrl("images/SirenIconWhite.svg");
-const shieldIcon = assetUrl("images/ShieldIconWhite.svg");
 const stopTradingIcon = assetUrl("images/StopIconWhite.svg");
 const targetIcon = assetUrl("images/TargetIconWhite.svg");
 const startTradingIcon = assetUrl("images/TradingIconWhite.svg");
 const traitorIcon = assetUrl("images/TraitorIconLightRed.svg");
 const breakAllianceIcon = assetUrl("images/TraitorIconWhite.svg");
-
-// The viewer's own badge from their /users/@me progress. Shown even when they
-// hide their level from others, as their profile does.
-export function ownLevelBadgeFrom(
-  me: UserMeResponse | false,
-): LevelBadge | undefined {
-  const progress = me === false ? undefined : me.player.progress;
-  if (progress === undefined) return undefined;
-  const { level, prestige, legend } = progress;
-  const badge = { level, prestige, legend };
-  return packLevelBadge(badge) === undefined ? undefined : badge;
-}
 
 @customElement("player-panel")
 export class PlayerPanel extends LitElement implements Controller {
@@ -84,7 +55,6 @@ export class PlayerPanel extends LitElement implements Controller {
   private actions: PlayerActions | null = null;
   private tile: TileRef | null = null;
   private _profileForPlayerId: number | null = null;
-  private kickedPlayerIDs = new Set<string>();
   private userSettings = new UserSettings();
 
   @state() private sendTarget: PlayerView | null = null;
@@ -94,29 +64,6 @@ export class PlayerPanel extends LitElement implements Controller {
   @state() private allianceExpirySeconds: number | null = null;
   @state() private otherProfile: PlayerProfile | null = null;
   @state() private suppressNextHide: boolean = false;
-  @state() private moderationTarget: PlayerView | null = null;
-  @state() private reportTarget: PlayerView | null = null;
-  // clientIDs this client has reported this game (confirmed sent by
-  // Transport); the button locks after one.
-  private reportedClientIDs = new Set<string>();
-  @state() private playerRole: string | null = null;
-  // Whether this game is a publicly listed lobby. Kept out of
-  // GameStartInfo (never touches records), so it's fetched from the worker.
-  @state() private gameListed = false;
-  // Fallback for the viewer's own badge when this tab never saw the lobby
-  // roster (a refresh or late join goes straight into the game).
-  private ownLevelBadge: LevelBadge | undefined;
-
-  setRole(role: string | null): void {
-    this.playerRole = role;
-  }
-
-  private get isAdminRole(): boolean {
-    return this.playerRole === "admin" || this.playerRole === "root";
-  }
-
-  private ctModal: ChatModal;
-
   createRenderRoot() {
     return this;
   }
@@ -132,11 +79,6 @@ export class PlayerPanel extends LitElement implements Controller {
       this.uiState.rocketDirectionUp = event.rocketDirectionUp;
       this.requestUpdate();
     });
-    eventBus.on(PlayerReportedEvent, (event) => {
-      this.reportedClientIDs.add(event.reported);
-      this.requestUpdate();
-      showToast(translateText("player_panel.report_sent"), "green");
-    });
   }
   init() {
     this.eventBus.on(MouseUpEvent, () => {
@@ -145,23 +87,6 @@ export class PlayerPanel extends LitElement implements Controller {
         return;
       }
       this.hide();
-    });
-
-    this.ctModal = document.querySelector("chat-modal") as ChatModal;
-    if (!this.ctModal) {
-      console.warn("ChatModal element not found in DOM");
-    }
-
-    // Only private games can be listed.
-    if (this.g.config().gameConfig().gameType === GameType.Private) {
-      void fetchLobbyListed(this.g.gameID()).then((listed) => {
-        this.gameListed = listed;
-      });
-    }
-
-    // Memoised: normally answered from the profile loaded at sign-in.
-    void getUserMe().then((me) => {
-      this.ownLevelBadge = ownLevelBadgeFrom(me);
     });
   }
 
@@ -212,8 +137,6 @@ export class PlayerPanel extends LitElement implements Controller {
   public show(actions: PlayerActions, tile: TileRef) {
     this.actions = actions;
     this.tile = tile;
-    this.moderationTarget = null;
-    this.reportTarget = null;
     this.isVisible = true;
     this.requestUpdate();
   }
@@ -228,8 +151,6 @@ export class PlayerPanel extends LitElement implements Controller {
     this.tile = tile;
     this.sendTarget = target;
     this.sendMode = "gold";
-    this.moderationTarget = null;
-    this.reportTarget = null;
     this.isVisible = true;
     this.requestUpdate();
   }
@@ -238,8 +159,6 @@ export class PlayerPanel extends LitElement implements Controller {
     this.isVisible = false;
     this.sendMode = "none";
     this.sendTarget = null;
-    this.moderationTarget = null;
-    this.reportTarget = null;
     this.requestUpdate();
   }
 
@@ -363,63 +282,10 @@ export class PlayerPanel extends LitElement implements Controller {
     });
   }
 
-  private handleChat(e: Event, sender: PlayerView, other: PlayerView) {
-    e.stopPropagation();
-
-    if (!this.ctModal) {
-      console.warn("ChatModal element not found in DOM");
-      return;
-    }
-
-    this.ctModal.open(sender, other);
-    this.hide();
-  }
-
   private handleTargetClick(e: Event, other: PlayerView) {
     e.stopPropagation();
     this.eventBus.emit(new SendTargetPlayerIntentEvent(other.id()));
     this.hide();
-  }
-
-  private openModeration(e: MouseEvent, other: PlayerView) {
-    e.stopPropagation();
-    this.suppressNextHide = true;
-    this.moderationTarget = other;
-  }
-
-  private closeModeration = () => {
-    this.moderationTarget = null;
-  };
-
-  private handleModerationKicked = (e: CustomEvent<{ playerId?: string }>) => {
-    const playerId = e.detail?.playerId;
-    if (playerId) this.kickedPlayerIDs.add(String(playerId));
-    this.closeModeration();
-    this.hide();
-  };
-
-  private openReport(e: MouseEvent, other: PlayerView) {
-    e.stopPropagation();
-    this.suppressNextHide = true;
-    this.reportTarget = other;
-  }
-
-  private closeReport = () => {
-    this.reportTarget = null;
-  };
-
-  // Anyone may report another human of a multiplayer game. Singleplayer
-  // records are client-authored and the API ignores their reports; once the
-  // game is decided the record has been archived and the server refuses.
-  private canReport(my: PlayerView, other: PlayerView): boolean {
-    return (
-      this.g.config().gameConfig().gameType !== GameType.Singleplayer &&
-      !this.g.config().isReplay() &&
-      !this.g.gameOver() &&
-      other !== my &&
-      other.type() === PlayerType.Human &&
-      !!other.clientID()
-    );
   }
 
   private handleToggleRocketDirection(e: Event) {
@@ -533,51 +399,6 @@ export class PlayerPanel extends LitElement implements Controller {
     `;
   }
 
-  private renderModeration(
-    my: PlayerView,
-    other: PlayerView,
-    isAdmin: boolean,
-  ) {
-    const canReport = this.canReport(my, other);
-    // The host of a publicly listed game cannot kick (server-enforced), so
-    // don't offer the panel; admins keep it for moderation.
-    const canModerate =
-      (my.isLobbyCreator() || isAdmin) && (!this.gameListed || isAdmin);
-    if (!canReport && !canModerate) return html``;
-    const reported = this.reportedClientIDs.has(other.clientID() ?? "");
-    const reportTitle = reported
-      ? translateText("player_panel.reported")
-      : translateText("player_panel.report");
-    const moderationTitle = translateText("player_panel.moderation");
-
-    return html`
-      <ui-divider></ui-divider>
-      <div class="grid auto-cols-fr grid-flow-col gap-1">
-        ${canReport
-          ? actionButton({
-              onClick: (e: MouseEvent) => this.openReport(e, other),
-              icon: reportIcon,
-              iconAlt: "Report",
-              title: reportTitle,
-              label: reportTitle,
-              type: "red",
-              disabled: reported,
-            })
-          : ""}
-        ${canModerate
-          ? actionButton({
-              onClick: (e: MouseEvent) => this.openModeration(e, other),
-              icon: shieldIcon,
-              iconAlt: "Moderation",
-              title: moderationTitle,
-              label: moderationTitle,
-              type: "red",
-            })
-          : ""}
-      </div>
-    `;
-  }
-
   private renderRelationPillIfNation(other: PlayerView, my: PlayerView) {
     if (other.type() !== PlayerType.Nation) return html``;
     if (other.isTraitor()) return html``;
@@ -596,22 +417,6 @@ export class PlayerPanel extends LitElement implements Controller {
     `;
   }
 
-  // The level badge from the lobby roster, for human players only; the
-  // viewer's own falls back to their /users/@me. Hidden for anyone but the
-  // viewer's own player while anonymous names are on: their name is
-  // anonymized then (PlayerView.displayName), and the badge belongs to the
-  // real one.
-  private levelBadgeFor(other: PlayerView): LevelBadge | undefined {
-    if (other.type() !== PlayerType.Human) return undefined;
-    const clientID = other.clientID();
-    const isSelf = clientID !== null && clientID === this.g.myClientID();
-    if (!isSelf && this.userSettings.anonymousNames()) return undefined;
-    return (
-      lobbyLevelBadge(this.g.gameID(), clientID) ??
-      (isSelf ? this.ownLevelBadge : undefined)
-    );
-  }
-
   private renderIdentityRow(other: PlayerView, my: PlayerView) {
     const flagPath = other.cosmetics.flag;
     const flagCode = flagPath?.match(/\/flags\/(.+)\.svg$/)?.[1];
@@ -624,7 +429,6 @@ export class PlayerPanel extends LitElement implements Controller {
       other.type() === PlayerType.Human
         ? null
         : this.identityChipProps(other.type());
-    const levelBadge = this.levelBadgeFor(other);
 
     return html`
       <div class="flex items-center gap-2.5 flex-wrap">
@@ -641,15 +445,6 @@ export class PlayerPanel extends LitElement implements Controller {
           : ""}
 
         <div class="flex-1 min-w-0 flex items-center gap-2">
-          ${levelBadge
-            ? html`<level-badge
-                class="shrink-0"
-                .level=${levelBadge.level}
-                .prestige=${levelBadge.prestige}
-                ?legend=${levelBadge.legend}
-                size="28"
-              ></level-badge>`
-            : ""}
           <h2
             class="min-w-0 text-xl font-bold tracking-[-0.01em] text-zinc-50 truncate"
             title=${other.displayName()}
@@ -887,13 +682,6 @@ export class PlayerPanel extends LitElement implements Controller {
     return html`
       <div class="flex flex-col gap-2.5">
         <div class="grid auto-cols-fr grid-flow-col gap-1">
-          ${actionButton({
-            onClick: (e: MouseEvent) => this.handleChat(e, my, other),
-            icon: chatIcon,
-            iconAlt: "Chat",
-            title: translateText("player_panel.chat"),
-            label: translateText("player_panel.chat"),
-          })}
           ${canSendEmoji
             ? actionButton({
                 onClick: (e: MouseEvent) => this.handleEmojiClick(e, my, other),
@@ -1015,7 +803,6 @@ export class PlayerPanel extends LitElement implements Controller {
               })}
             </div>`
           : ""}
-        ${this.renderModeration(my, other, this.isAdminRole)}
       </div>
     `;
   }
@@ -1110,11 +897,6 @@ export class PlayerPanel extends LitElement implements Controller {
                       ${this.renderIdentityRow(other, viewer)}
                     </div>
 
-                    <!-- Cosmetics the player has equipped -->
-                    <equipped-cosmetics-row
-                      .cosmetics=${other.cosmetics}
-                    ></equipped-cosmetics-row>
-
                     ${this.sendTarget && !isSpectator
                       ? html`
                           <send-resource-modal
@@ -1136,33 +918,6 @@ export class PlayerPanel extends LitElement implements Controller {
                           ></send-resource-modal>
                         `
                       : ""}
-                    ${this.moderationTarget
-                      ? html`
-                          <player-moderation-modal
-                            .open=${true}
-                            .myPlayer=${viewer}
-                            .target=${this.moderationTarget}
-                            .eventBus=${this.eventBus}
-                            .isAdmin=${this.isAdminRole}
-                            .alreadyKicked=${this.kickedPlayerIDs.has(
-                              String(this.moderationTarget.id()),
-                            )}
-                            @close=${this.closeModeration}
-                            @kicked=${this.handleModerationKicked}
-                          ></player-moderation-modal>
-                        `
-                      : ""}
-                    ${this.reportTarget
-                      ? html`
-                          <player-report-modal
-                            .open=${true}
-                            .target=${this.reportTarget}
-                            .eventBus=${this.eventBus}
-                            @close=${this.closeReport}
-                          ></player-report-modal>
-                        `
-                      : ""}
-
                     <ui-divider></ui-divider>
 
                     <!-- Resources -->
@@ -1191,11 +946,7 @@ export class PlayerPanel extends LitElement implements Controller {
                           <!-- Actions -->
                           ${this.renderActions(viewer, other)}
                         `
-                      : my
-                        ? // Dead (or not yet spawned) players still get to
-                          // report and, as host/admin, moderate.
-                          this.renderModeration(my, other, this.isAdminRole)
-                        : ""}
+                      : ""}
                   </div>
                 </div>
               </div>

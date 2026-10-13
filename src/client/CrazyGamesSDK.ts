@@ -1,22 +1,8 @@
-export interface CrazyGamesUser {
-  username: string;
-  profilePictureUrl: string;
-}
-
 declare global {
   interface Window {
     CrazyGames?: {
       SDK: {
         init: () => Promise<void>;
-        user: {
-          isUserAccountAvailable: boolean;
-          getUser(): Promise<CrazyGamesUser | null>;
-          getUserToken(): Promise<string>;
-          showAuthPrompt(): Promise<CrazyGamesUser | null>;
-          addAuthListener: (
-            listener: (user: CrazyGamesUser | null) => void,
-          ) => void;
-        };
         ad: {
           requestAd: (
             adType: string,
@@ -33,14 +19,6 @@ declare global {
           happytime: () => Promise<void>;
           loadingStart: () => void;
           loadingStop: () => void;
-          showInviteButton: (options: {
-            gameId: string | number;
-            [key: string]: string | number;
-          }) => string;
-          hideInviteButton: () => void;
-          inviteLink: (params: { [key: string]: string | number }) => string;
-          getInviteParam: (paramName: string) => string | null;
-          isInstantMultiplayer?: boolean;
         };
       };
     };
@@ -67,16 +45,6 @@ export class CrazyGamesSDK {
     });
 
     return Promise.race([this.readyPromise, timeout]);
-  }
-
-  // Like ready() but without the 3s cap: waits for maybeInit() to actually
-  // finish (SDK load alone can take ~10s on a slow network). Use this for
-  // auth-critical calls, where a premature false logs the player out.
-  private whenReady(): Promise<boolean> {
-    if (!this.isOnCrazyGames()) {
-      return Promise.resolve(false);
-    }
-    return this.readyPromise;
   }
 
   isOnCrazyGames(): boolean {
@@ -137,97 +105,6 @@ export class CrazyGamesSDK {
     } catch (error) {
       console.error("Failed to initialize CrazyGames SDK:", error);
       this.resolveReady(false);
-    }
-  }
-
-  async getUsername(): Promise<string | null> {
-    const isReady = await this.ready();
-    if (!isReady) {
-      return null;
-    }
-    try {
-      return (await window.CrazyGames!.SDK.user.getUser())?.username ?? null;
-    } catch (e) {
-      console.log("error getting CrazyGames username: ", e);
-      return null;
-    }
-  }
-
-  // Returns a fresh CrazyGames-signed user token to exchange with our backend,
-  // or null if accounts aren't available here or no user is signed in.
-  // CrazyGames recommends fetching this fresh each time rather than caching it.
-  async getUserToken(): Promise<string | null> {
-    if (!(await this.whenReady())) {
-      return null;
-    }
-    try {
-      if (!window.CrazyGames!.SDK.user.isUserAccountAvailable) {
-        return null;
-      }
-      return await window.CrazyGames!.SDK.user.getUserToken();
-    } catch (e) {
-      console.log("error getting CrazyGames user token: ", e);
-      return null;
-    }
-  }
-
-  // Returns the signed-in CrazyGames user (username + avatar), or null if
-  // accounts aren't available here or no user is signed in.
-  async getUserProfile(): Promise<CrazyGamesUser | null> {
-    if (!(await this.whenReady())) {
-      return null;
-    }
-    try {
-      return await window.CrazyGames!.SDK.user.getUser();
-    } catch (e) {
-      console.log("error getting CrazyGames user: ", e);
-      return null;
-    }
-  }
-
-  // Opens CrazyGames' own sign-in prompt. On success the auth listener fires,
-  // which drives our re-auth. Resolves regardless of outcome (e.g. cancelled).
-  async showAuthPrompt(): Promise<void> {
-    if (!(await this.whenReady())) {
-      return;
-    }
-    try {
-      await window.CrazyGames!.SDK.user.showAuthPrompt();
-    } catch (e) {
-      console.log("CrazyGames auth prompt dismissed: ", e);
-    }
-  }
-
-  async addAuthListener(
-    listener: (user: CrazyGamesUser | null) => void,
-  ): Promise<void> {
-    if (!(await this.whenReady())) {
-      return;
-    }
-
-    try {
-      console.log("registering CrazyGames auth listener");
-      window.CrazyGames!.SDK.user.addAuthListener(listener);
-    } catch (error) {
-      console.error("Failed to add auth listener:", error);
-    }
-  }
-
-  async isInstantMultiplayer(): Promise<boolean> {
-    const isReady = await this.ready();
-    if (!isReady) {
-      return false;
-    }
-    const gameId = await this.getInviteGameId();
-    if (gameId !== null) {
-      // Game id exists, meaning we are joining the game, not hosting it.
-      return false;
-    }
-    try {
-      return window.CrazyGames!.SDK.game.isInstantMultiplayer ?? false;
-    } catch (e) {
-      console.log("Error getting instant multiplayer: ", e);
-      return false;
     }
   }
 
@@ -304,76 +181,6 @@ export class CrazyGamesSDK {
       console.log("CrazyGames: loading stopped");
     } catch (error) {
       console.error("Failed to report loading stop:", error);
-    }
-  }
-
-  showInviteButton(gameId: string): string | null {
-    if (!this.isReady()) {
-      return null;
-    }
-    try {
-      const options: {
-        gameId: string | number;
-        [key: string]: string | number;
-      } = {
-        gameId,
-      };
-      const link = window.CrazyGames!.SDK.game.showInviteButton(options);
-      // Store the game so we know that we are host. This way when player refreshes page,
-      // It won't show up as "joining" a game we created.
-      localStorage.setItem(gameId, "true");
-      console.log("CrazyGames: invite button shown, link:", link);
-      return link;
-    } catch (error) {
-      console.error("Failed to show invite button:", error);
-      return null;
-    }
-  }
-
-  hideInviteButton(): void {
-    if (!this.isReady()) {
-      return;
-    }
-
-    try {
-      window.CrazyGames!.SDK.game.hideInviteButton();
-      console.log("CrazyGames: invite button hidden");
-    } catch (error) {
-      console.error("Failed to hide invite button:", error);
-    }
-  }
-
-  createInviteLink(gameId: string): string | null {
-    if (!this.isReady()) {
-      console.warn("CrazyGames SDK not ready, cannot create invite link");
-      return null;
-    }
-
-    try {
-      const link = window.CrazyGames!.SDK.game.inviteLink({ gameId });
-      console.log("CrazyGames: created invite link:", link);
-      return link;
-    } catch (error) {
-      console.error("Failed to create invite link:", error);
-      return null;
-    }
-  }
-
-  async getInviteGameId(): Promise<string | null> {
-    if (!(await this.ready())) {
-      return null;
-    }
-    try {
-      const gameId = window.CrazyGames!.SDK.game.getInviteParam("gameId");
-      if (gameId) {
-        console.log("[CrazyGames] found invite link", gameId);
-        // We already created this game, can't join a game we created.
-        return localStorage.getItem(gameId) === "true" ? null : gameId;
-      }
-      return null;
-    } catch (error) {
-      console.error(`Failed to get invite gameId:`, error);
-      return null;
     }
   }
 

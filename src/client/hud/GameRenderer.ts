@@ -4,7 +4,6 @@ import { AmbienceController } from "../controllers/AmbienceController";
 import { AttackingTroopsController } from "../controllers/AttackingTroopsController";
 import { BuildPreviewController } from "../controllers/BuildPreviewController";
 import { HoverHighlightController } from "../controllers/HoverHighlightController";
-import { LiveStatsController } from "../controllers/LiveStatsController";
 import { MapLayerController } from "../controllers/MapLayerController";
 import { SoundEffectController } from "../controllers/SoundEffectController";
 import { StructureHighlightController } from "../controllers/StructureHighlightController";
@@ -26,8 +25,6 @@ import { ActionableEvents } from "./layers/ActionableEvents";
 import { AlertFrame } from "./layers/AlertFrame";
 import { AttacksDisplay } from "./layers/AttacksDisplay";
 import { BuildMenu } from "./layers/BuildMenu";
-import { ChatDisplay } from "./layers/ChatDisplay";
-import { ChatModal } from "./layers/ChatModal";
 import { ControlPanel } from "./layers/ControlPanel";
 import { EmojiTable } from "./layers/EmojiTable";
 import { EventsDisplay } from "./layers/EventsDisplay";
@@ -35,10 +32,7 @@ import { GameLeftSidebar } from "./layers/GameLeftSidebar";
 import { GameRightSidebar } from "./layers/GameRightSidebar";
 import { HeadsUpMessage } from "./layers/HeadsUpMessage";
 import { ImmunityTimer } from "./layers/ImmunityTimer";
-import { InGamePromo } from "./layers/InGamePromo";
 import { MainRadialMenu } from "./layers/MainRadialMenu";
-import { MultiTabModal } from "./layers/MultiTabModal";
-import { NewLobbyPrompt } from "./layers/NewLobbyPrompt";
 import { PerformanceOverlay } from "./layers/PerformanceOverlay";
 import { PlayerInfoOverlay } from "./layers/PlayerInfoOverlay";
 import { PlayerPanel } from "./layers/PlayerPanel";
@@ -54,7 +48,6 @@ export function createRenderer(
   inputEl: HTMLElement,
   game: GameView,
   eventBus: EventBus,
-  playerRole: string | null,
   view: MapRenderer,
   mapLayerController?: MapLayerController,
 ): GameRenderer {
@@ -139,13 +132,6 @@ export function createRenderer(
   attacksDisplay.game = game;
   attacksDisplay.uiState = uiState;
 
-  const chatDisplay = document.querySelector("chat-display") as ChatDisplay;
-  if (!(chatDisplay instanceof ChatDisplay)) {
-    console.error("chat display not found");
-  }
-  chatDisplay.eventBus = eventBus;
-  chatDisplay.game = game;
-
   const playerInfo = document.querySelector(
     "player-info-overlay",
   ) as PlayerInfoOverlay;
@@ -162,15 +148,6 @@ export function createRenderer(
   }
   winModal.eventBus = eventBus;
   winModal.game = game;
-
-  const newLobbyPrompt = document.querySelector(
-    "new-lobby-prompt",
-  ) as NewLobbyPrompt;
-  if (!(newLobbyPrompt instanceof NewLobbyPrompt)) {
-    console.error("new lobby prompt not found");
-  }
-  newLobbyPrompt.eventBus = eventBus;
-  newLobbyPrompt.game = game;
 
   const replayPanel = document.querySelector("replay-panel") as ReplayPanel;
   if (!(replayPanel instanceof ReplayPanel)) {
@@ -242,24 +219,6 @@ export function createRenderer(
   playerPanel.emojiTable = emojiTable;
   playerPanel.uiState = uiState;
 
-  playerPanel.setRole(playerRole);
-
-  const chatModal = document.querySelector("chat-modal") as ChatModal;
-  if (!(chatModal instanceof ChatModal)) {
-    console.error("chat modal not found");
-  }
-  chatModal.g = game;
-  chatModal.transformHandler = transformHandler;
-  chatModal.initEventBus(eventBus);
-
-  const multiTabModal = document.querySelector(
-    "multi-tab-modal",
-  ) as MultiTabModal;
-  if (!(multiTabModal instanceof MultiTabModal)) {
-    console.error("multi-tab modal not found");
-  }
-  multiTabModal.game = game;
-
   const headsUpMessage = document.querySelector(
     "heads-up-message",
   ) as HeadsUpMessage;
@@ -300,12 +259,6 @@ export function createRenderer(
   immunityTimer.game = game;
   immunityTimer.eventBus = eventBus;
 
-  const inGamePromo = document.querySelector("in-game-promo") as InGamePromo;
-  if (!(inGamePromo instanceof InGamePromo)) {
-    console.error("in-game promo not found");
-  }
-  inGamePromo.game = game;
-
   const tutorialPanel = document.querySelector(
     "tutorial-panel",
   ) as TutorialPanel;
@@ -328,7 +281,6 @@ export function createRenderer(
       userSettings,
     ),
     new HoverHighlightController(game, eventBus, transformHandler, view),
-    new LiveStatsController(game, eventBus),
     new StructureHighlightController(eventBus, view),
     new ViewModeController(eventBus, view),
     new AttackingTroopsController(game, eventBus, userSettings, view),
@@ -338,7 +290,6 @@ export function createRenderer(
     eventsDisplay,
     actionableEvents,
     attacksDisplay,
-    chatDisplay,
     buildMenu,
     new MainRadialMenu(
       eventBus,
@@ -357,13 +308,10 @@ export function createRenderer(
     controlPanel,
     playerInfo,
     winModal,
-    newLobbyPrompt,
     replayPanel,
     settingsModal,
     playerPanel,
     headsUpMessage,
-    multiTabModal,
-    inGamePromo,
     tutorialPanel,
     alertFrame,
     performanceOverlay,

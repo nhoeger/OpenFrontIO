@@ -20,7 +20,6 @@ import { UIState } from "../../UIState";
 import { translateText } from "../../Utils";
 import { GameView, PlayerView } from "../../view";
 import { BuildItemDisplay, BuildMenu, flattenedBuildTable } from "./BuildMenu";
-import { ChatIntegration } from "./ChatIntegration";
 import { EmojiTable } from "./EmojiTable";
 import { PlayerActionHandler } from "./PlayerActionHandler";
 import { PlayerPanel } from "./PlayerPanel";
@@ -34,7 +33,6 @@ import {
 const allianceIcon = assetUrl("images/AllianceIconWhite.svg");
 const boatIcon = assetUrl("images/BoatIconWhite.svg");
 const buildIcon = assetUrl("images/BuildIconWhite.svg");
-const chatIcon = assetUrl("images/ChatIconWhite.svg");
 const donateGoldIcon = assetUrl("images/DonateGoldIconWhite.svg");
 const donateTroopIcon = assetUrl("images/DonateTroopIconWhite.svg");
 const emojiIcon = assetUrl("images/EmojiIconWhite.svg");
@@ -54,7 +52,6 @@ export interface MenuElementParams {
   emojiTable: EmojiTable;
   playerActionHandler: PlayerActionHandler;
   playerPanel: PlayerPanel;
-  chatIntegration: ChatIntegration;
   eventBus: EventBus;
   uiState?: UIState;
   closeMenu: () => void;
@@ -112,15 +109,6 @@ export const COLORS = {
     cost: "#f59e0b",
     count: "#94a3b8",
   },
-  chat: {
-    default: "#6366f1",
-    help: "#22c55e",
-    attack: "#ef4444",
-    defend: "#3b82f6",
-    greet: "#f97316",
-    misc: "#a855f7",
-    warnings: "#fbbf24",
-  },
 };
 
 export enum Slot {
@@ -148,24 +136,6 @@ function isDisconnectedTarget(params: MenuElementParams): boolean {
   if (typeof isDisconnected !== "function") return false;
   return isDisconnected.call(selectedPlayer);
 }
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const infoChatElement: MenuElement = {
-  id: "info_chat",
-  name: "chat",
-  disabled: () => false,
-  color: COLORS.chat.default,
-  icon: chatIcon,
-  subMenu: (params: MenuElementParams) =>
-    params.chatIntegration
-      .createQuickChatMenu(params.selected!)
-      .map((item) => ({
-        ...item,
-        action: item.action
-          ? (_params: MenuElementParams) => item.action!(params)
-          : undefined,
-      })),
-};
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const allyTargetElement: MenuElement = {

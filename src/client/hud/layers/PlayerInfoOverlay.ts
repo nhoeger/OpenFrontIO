@@ -39,7 +39,6 @@ import {
   getPlayerIcons,
   IMAGE_ICON_KIND,
 } from "../PlayerIcons";
-import { ShowPlayerChatEvent } from "./ChatModal";
 import { ShowPlayerEmojiMenuEvent } from "./EmojiTable";
 import { ImmunityBarVisibleEvent } from "./ImmunityTimer";
 import { CloseRadialMenuEvent } from "./RadialMenu";
@@ -50,7 +49,6 @@ const allianceIcon = assetUrl("images/AllianceIcon.svg");
 const traitorIcon = assetUrl("images/TraitorIcon.svg");
 const warshipIcon = assetUrl("images/BattleshipIconWhite.svg");
 const emojiIcon = assetUrl("images/EmojiIconWhite.svg");
-const chatIcon = assetUrl("images/ChatIconWhite.svg");
 const requestAllianceIcon = assetUrl("images/AllianceIconWhite.svg");
 const breakAllianceIcon = assetUrl("images/TraitorIconWhite.svg");
 const targetIcon = assetUrl("images/TargetIconWhite.svg");
@@ -616,14 +614,6 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
       <div class="flex items-start gap-1 lg:gap-2 p-1 lg:p-1.5">
         ${myPlayer && this.showShortcutButtons()
           ? html`<div class="flex flex-col gap-1 self-center shrink-0">
-              ${player !== myPlayer
-                ? this.renderShortcutButton(
-                    chatIcon,
-                    translateText("player_panel.chat"),
-                    keybinds.quickChat,
-                    () => this.eventBus.emit(new ShowPlayerChatEvent(player)),
-                  )
-                : ""}
               ${this.renderShortcutButton(
                 emojiIcon,
                 translateText("player_panel.emotes"),

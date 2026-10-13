@@ -1,5 +1,5 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
-import { GameType, UnitType } from "@openfront/engine-api/game/GameTypes";
+import { UnitType } from "@openfront/engine-api/game/GameTypes";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   zInt,
@@ -198,11 +198,7 @@ class SAMTargetingSystem {
     const samOwner = this.sam.owner();
     const nukeOwner = unit.owner();
     if (samOwner.isFriendly(nukeOwner)) {
-      // Aftergame fun (nuking teammates once the game is over) is disabled in singleplayer.
-      const gameOver =
-        this.mg.getWinner() !== null &&
-        this.mg.config().gameConfig().gameType !== GameType.Singleplayer;
-      return gameOver && samOwner.isOnSameTeam(nukeOwner);
+      return false;
     }
     return true;
   }

@@ -5,14 +5,6 @@ import "../../src/client/components/NavUtilityIcons";
 import "../../src/client/components/PlayPage";
 import { initNavigation } from "../../src/client/Navigation";
 
-// jsdom has no ResizeObserver, and the mobile top bar shares a subtree with
-// <steam-wishlist>, which constructs one on first update.
-globalThis.ResizeObserver ??= class {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-} as unknown as typeof ResizeObserver;
-
 type Mountable = HTMLElement & { updateComplete: Promise<unknown> };
 
 async function mount(tag: string): Promise<Mountable> {
@@ -75,7 +67,7 @@ describe("nav-utility-icons settings cogwheel", () => {
     expect(shared(settings)).toEqual(shared(help));
   });
 
-  it("sits last in the cluster, immediately left of the profile control", () => {
+  it("sits last in the cluster of page buttons", () => {
     const buttons = Array.from(
       icons.querySelectorAll<HTMLElement>(".nav-menu-item[data-page]"),
     ).map((b) => b.dataset.page);
@@ -101,14 +93,10 @@ describe("the nav bars that host the cluster", () => {
     window.currentPageId = "page-play";
   });
 
-  it("puts the cogwheel in the desktop bar, immediately left of the avatar", async () => {
+  it("puts the cogwheel in the desktop bar", async () => {
     const bar = await mount("desktop-nav-bar");
     expect(settingsButton(bar)).not.toBeNull();
-
-    const cluster = bar.querySelector("nav-utility-icons")!;
-    expect(cluster.nextElementSibling?.tagName.toLowerCase()).toBe(
-      "nav-account-menu",
-    );
+    expect(bar.querySelector("nav-utility-icons")).not.toBeNull();
   });
 
   it("puts the cogwheel in the mobile top bar too", async () => {
@@ -116,8 +104,5 @@ describe("the nav bars that host the cluster", () => {
     const cluster = page.querySelector("nav-utility-icons")!;
     expect(cluster.getAttribute("size")).toBe("mobile");
     expect(settingsButton(cluster)).not.toBeNull();
-    expect(cluster.nextElementSibling?.tagName.toLowerCase()).toBe(
-      "nav-account-menu",
-    );
   });
 });

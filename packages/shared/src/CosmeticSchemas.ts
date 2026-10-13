@@ -1,7 +1,6 @@
 import { base64url } from "jose";
 import { z } from "zod/v4";
 import { decodePatternData } from "./PatternDecoder";
-import { PlayerPattern } from "./WireSchemas";
 
 export type Cosmetics = z.infer<typeof CosmeticsSchema>;
 export type Pattern = z.infer<typeof PatternSchema>;
@@ -9,10 +8,6 @@ export type Flag = z.infer<typeof FlagSchema>;
 export type Crown = z.infer<typeof CrownSchema>;
 export type Skin = z.infer<typeof SkinSchema>;
 export type Pack = z.infer<typeof PackSchema>;
-// A cosmetic pack: a bundle of cosmetics sold for one hard-currency price
-// (distinct from Pack, which is a currency bundle).
-export type CosmeticPack = z.infer<typeof CosmeticPackSchema>;
-export type CosmeticPackItem = z.infer<typeof CosmeticPackItemSchema>;
 export type Subscription = z.infer<typeof SubscriptionSchema>;
 // An effect cosmetic of any type — discriminated on effectType (today
 // transportShipTrail + nukeTrail + nukeExplosion + structures + warship +
@@ -45,8 +40,6 @@ export type RailroadEffectAttributes = z.infer<
   typeof RailroadEffectAttributesSchema
 >;
 export type PatternName = z.infer<typeof CosmeticNameSchema>;
-export type Product = z.infer<typeof ProductSchema>;
-export type ColorPalette = z.infer<typeof ColorPaletteSchema>;
 export type PatternData = z.infer<typeof PatternDataSchema>;
 
 export const ProductSchema = z.object({
@@ -579,9 +572,3 @@ export function findEffect(
   if (!byName) return undefined;
   return byName[name] ?? Object.values(byName).find((e) => e.name === name);
 }
-
-export const DefaultPattern = {
-  name: "default",
-  patternData: "AAAAAA",
-  colorPalette: undefined,
-} satisfies PlayerPattern;

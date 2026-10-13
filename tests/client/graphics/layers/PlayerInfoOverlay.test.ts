@@ -167,7 +167,7 @@ describe("PlayerInfoOverlay", () => {
     expect(flatten(overlay.render())).toContain("Carol");
   });
 
-  describe("chat and emoji buttons", () => {
+  describe("emoji button", () => {
     const realWidth = window.innerWidth;
     const realMatchMedia = window.matchMedia;
 
@@ -202,31 +202,27 @@ describe("PlayerInfoOverlay", () => {
 
     it("show on wide screens with a mouse, widening the panel", () => {
       const out = showWith(1200, false);
-      expect(out).toContain("player_panel.chat");
       expect(out).toContain("player_panel.emotes");
       expect(out).toContain("sm:w-[598px]");
     });
 
-    it("leave out chat when hovering my own territory", () => {
+    it("still show the emoji button when hovering my own territory", () => {
       const out = showWith(1200, false, {
         ...hovered,
         isFriendly: () => true,
         isAlliedWith: () => false,
       });
-      expect(out).not.toContain("player_panel.chat");
       expect(out).toContain("player_panel.emotes");
     });
 
     it("hide below 1200px so the panel doesn't cover the leaderboard", () => {
       const out = showWith(1199, false);
-      expect(out).not.toContain("player_panel.chat");
       expect(out).not.toContain("player_panel.emotes");
       expect(out).toContain("sm:w-[500px]");
     });
 
     it("hide on touch devices", () => {
       const out = showWith(1400, true);
-      expect(out).not.toContain("player_panel.chat");
       expect(out).not.toContain("player_panel.emotes");
       expect(out).toContain("sm:w-[500px]");
     });

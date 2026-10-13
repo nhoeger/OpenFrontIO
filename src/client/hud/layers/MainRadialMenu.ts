@@ -7,7 +7,6 @@ import { TransformHandler } from "../../TransformHandler";
 import { UIState } from "../../UIState";
 import { GameView, PlayerView } from "../../view";
 import { BuildMenu } from "./BuildMenu";
-import { ChatIntegration } from "./ChatIntegration";
 import { EmojiTable } from "./EmojiTable";
 import { PlayerActionHandler } from "./PlayerActionHandler";
 import { PlayerPanel } from "./PlayerPanel";
@@ -35,7 +34,6 @@ export class MainRadialMenu implements Controller {
   private radialMenu: RadialMenu;
 
   private playerActionHandler: PlayerActionHandler;
-  private chatIntegration: ChatIntegration;
 
   private clickedTile: TileRef | null = null;
 
@@ -76,8 +74,6 @@ export class MainRadialMenu implements Controller {
       this.eventBus,
       this.uiState,
     );
-
-    this.chatIntegration = new ChatIntegration(this.game, this.eventBus);
   }
 
   init() {
@@ -133,10 +129,6 @@ export class MainRadialMenu implements Controller {
     const tileOwner = this.game.owner(tile);
     const recipient = tileOwner.isPlayer() ? (tileOwner as PlayerView) : null;
 
-    if (recipient) {
-      this.chatIntegration.setupChatModal(myPlayer, recipient);
-    }
-
     const params: MenuElementParams = {
       myPlayer,
       selected: recipient,
@@ -147,7 +139,6 @@ export class MainRadialMenu implements Controller {
       emojiTable: this.emojiTable,
       playerActionHandler: this.playerActionHandler,
       playerPanel: this.playerPanel,
-      chatIntegration: this.chatIntegration,
       uiState: this.uiState,
       closeMenu: () => this.closeMenu(),
       eventBus: this.eventBus,

@@ -54,10 +54,11 @@ function conquerBox(
 
 describe("basic execution snapshots", () => {
   test("spawn phase: pending, initialized and completed spawns", async () => {
-    const alice = human("alice");
+    // Bots, because a singleplayer human's spawn ends the spawn phase at once.
+    const alice = new PlayerInfo("alice", PlayerType.Bot, null, "alice");
     const game = await setup(
       MAP,
-      { gameType: GameType.Public },
+      { gameType: GameType.Singleplayer },
       [alice],
       undefined,
       undefined,
@@ -67,7 +68,11 @@ describe("basic execution snapshots", () => {
     // PlayerInfo is not registered with the game.
     game.addExecution(
       new SpawnExecution("game_id", alice, game.ref(20, 20), true),
-      new SpawnExecution("game_id", human("zed"), undefined),
+      new SpawnExecution(
+        "game_id",
+        new PlayerInfo("zed", PlayerType.Bot, null, "zed"),
+        undefined,
+      ),
     );
     // Pending in unInitExecs.
     await expectSnapshotRoundTrip(game, MAP, 0);

@@ -30,19 +30,12 @@ describe("ClientEnv", () => {
   test("reads from window.BOOTSTRAP_CONFIG without fetching", () => {
     window.BOOTSTRAP_CONFIG = {
       gameEnv: "staging",
-      numWorkers: 4,
-      turnstileSiteKey: "test-key",
-      jwtAudience: "openfront.dev",
-      instanceId: "TEST_ID",
       gitCommit: "abc123",
     };
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     expect(ClientEnv.env()).toBe(GameEnv.Preprod);
-    expect(ClientEnv.numWorkers()).toBe(4);
-    expect(ClientEnv.turnstileSiteKey()).toBe("test-key");
-    expect(ClientEnv.jwtAudience()).toBe("openfront.dev");
-    expect(ClientEnv.instanceId()).toBe("TEST_ID");
+    expect(ClientEnv.gitCommit()).toBe("abc123");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -51,55 +44,14 @@ describe("ClientEnv", () => {
   });
 
   test("throws when a required environment field is missing", () => {
-    // The four required values all describe the ENVIRONMENT; a page without
-    // one of them has no environment to run in. Values that name a SERVER
-    // are not required -- see the next test.
     window.BOOTSTRAP_CONFIG = {
       gameEnv: "dev",
-      numWorkers: 1,
-      turnstileSiteKey: "k",
-      jwtAudience: "localhost",
-      instanceId: "x",
       // gitCommit missing
     };
-    expect(() => ClientEnv.instanceId()).toThrow(/Missing BOOTSTRAP_CONFIG/);
+    expect(() => ClientEnv.gitCommit()).toThrow(/Missing BOOTSTRAP_CONFIG/);
   });
 
-  test("boots without the values that name a server", () => {
-    // A static page (multi-server v2) carries none of them; the API's
-    // server list answers instead. instanceId, which only a rendering
-    // server knows, reads as "".
-    window.BOOTSTRAP_CONFIG = {
-      gameEnv: "dev",
-      turnstileSiteKey: "k",
-      jwtAudience: "localhost",
-      gitCommit: "abc123",
-    };
-    expect(ClientEnv.env()).toBe(GameEnv.Dev);
-    expect(ClientEnv.instanceId()).toBe("");
-  });
-
-  test("jwtIssuer maps 'localhost' to http://localhost:8787", () => {
-    window.BOOTSTRAP_CONFIG = {
-      gameEnv: "dev",
-      numWorkers: 1,
-      turnstileSiteKey: "k",
-      jwtAudience: "localhost",
-      instanceId: "x",
-      gitCommit: "DEV",
-    };
-    expect(ClientEnv.jwtIssuer()).toBe("http://localhost:8787");
-  });
-
-  test("jwtIssuer derives api.<audience> for non-localhost", () => {
-    window.BOOTSTRAP_CONFIG = {
-      gameEnv: "prod",
-      numWorkers: 1,
-      turnstileSiteKey: "k",
-      jwtAudience: "openfront.io",
-      instanceId: "x",
-      gitCommit: "abc123",
-    };
-    expect(ClientEnv.jwtIssuer()).toBe("https://api.openfront.io");
+  test("turns tick every 100ms", () => {
+    expect(ClientEnv.turnIntervalMs()).toBe(100);
   });
 });

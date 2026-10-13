@@ -20,12 +20,10 @@ import { DonateTroopsExecution } from "./DonateTroopExecution";
 import { EmbargoAllExecution } from "./EmbargoAllExecution";
 import { EmbargoExecution } from "./EmbargoExecution";
 import { EmojiExecution } from "./EmojiExecution";
-import { MarkDisconnectedExecution } from "./MarkDisconnectedExecution";
 import { MoveWarshipExecution } from "./MoveWarshipExecution";
 import { NationExecution } from "./NationExecution";
 import { NoOpExecution } from "./NoOpExecution";
 import { PauseExecution } from "./PauseExecution";
-import { QuickChatExecution } from "./QuickChatExecution";
 import { RetreatExecution } from "./RetreatExecution";
 import { SpawnExecution } from "./SpawnExecution";
 import { TargetPlayerExecution } from "./TargetPlayerExecution";
@@ -42,8 +40,6 @@ export class Executor {
     private mg: Game,
     private gameID_: GameID,
     private clientID: ClientID | undefined,
-    // Purchased bot tribe names drawn for this game (GameStartInfo.tribes).
-    private purchasedTribeNames: string[] = [],
   ) {
     // Add one to avoid id collisions with tribes.
     this.random = new PseudoRandom(simpleHash(gameID_) + 1);
@@ -133,15 +129,6 @@ export class Executor {
         );
       case "delete_unit":
         return new DeleteUnitExecution(player, intent.unitId);
-      case "quick_chat":
-        return new QuickChatExecution(
-          player,
-          intent.recipient,
-          intent.quickChatKey,
-          intent.target,
-        );
-      case "mark_disconnected":
-        return new MarkDisconnectedExecution(player, intent.isDisconnected);
       case "toggle_pause":
         return new PauseExecution(player, intent.paused);
       default:
@@ -156,7 +143,6 @@ export class Executor {
       .filter((c): c is NonNullable<typeof c> => c !== undefined);
     return new TribeSpawner(this.mg, this.gameID_, nationCells).spawnTribes(
       numTribes,
-      this.purchasedTribeNames,
     );
   }
 

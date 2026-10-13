@@ -1,23 +1,6 @@
-import {
-  Duos,
-  GameMode,
-  GameType,
-  HumansVsNations,
-  maps,
-  MessageType,
-  PublicGameModifiers,
-  Quads,
-  Team,
-  Trios,
-} from "@openfront/engine-api/game/GameTypes";
-import { GameConfig } from "@openfront/engine-api/Schemas";
-import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
-import { stripVersionPrefix } from "@openfront/shared/ServerList";
+import { MessageType, Team } from "@openfront/engine-api/game/GameTypes";
 import IntlMessageFormat from "intl-messageformat";
-import { ClientEnv } from "./ClientEnv";
 import type { LangSelector } from "./LangSelector";
-import { pagePin } from "./PagePin";
-import { Platform } from "./Platform";
 
 export const TUTORIAL_VIDEO_URL = "https://www.youtube.com/embed/7J5zwb_s_Cg";
 
@@ -27,245 +10,6 @@ export const TUTORIAL_VIDEO_URL = "https://www.youtube.com/embed/7J5zwb_s_Cg";
 // Only meaningful when Platform.isElectron; on the web this path does not
 // exist.
 export const DESKTOP_TUTORIAL_VIDEO_URL = "/__tutorial/tutorial.webm";
-
-export function normaliseMapKey(mapName: string): string {
-  // Asset dirs / translation keys are the map id lowercased. For most maps
-  // stripping spaces from the display name gives the same string, but not for
-  // the tourney maps (e.g. "Tourney 2 Teams" lives in maps/tourney1/).
-  const id = maps.find((m) => m.type === mapName)?.id;
-  return (id ?? mapName).toLowerCase().replace(/[\s.]+/g, "");
-}
-
-/**
- * The map key desktop rich presence carries.
- *
- * Steam's localization file composes `#Map_<key>` and resolves it in the
- * *viewing* user's language, so presence has to send the normalised id -- the
- * same key `map.<id>` uses in our own translations, which keeps the two from
- * drifting apart -- rather than the display name, which would compose a token
- * that does not exist. Steam hides the entire status line when a token fails
- * to resolve, so getting this wrong is a total failure rather than a partial
- * one. Absent stays absent.
- */
-export function presenceMapKey(
-  gameMap: string | undefined,
-): string | undefined {
-  return gameMap === undefined ? undefined : normaliseMapKey(gameMap);
-}
-
-export function getMapName(mapName: string | undefined): string | null {
-  if (!mapName) return null;
-  const translationKey =
-    maps.find((m) => m.type === mapName)?.translationKey ??
-    `map.${normaliseMapKey(mapName)}`;
-  return translateText(translationKey);
-}
-
-const TEAM_PRESET_SIZES = { [Duos]: 2, [Trios]: 3, [Quads]: 4 } as const;
-const TEAM_PRESET_BY_SIZE: Record<number, string> = {
-  2: Duos,
-  3: Trios,
-  4: Quads,
-};
-
-function presetTeamsLabel(
-  preset: string,
-  teamCount: number,
-  playersPerTeam: number,
-): string {
-  return translateText("mode_selector.teams_preset", {
-    teams: translateText("mode_selector.teams_of", {
-      teamCount,
-      playersPerTeam,
-    }),
-    preset: translateText(`detailed_view.layout_${preset.toLowerCase()}`),
-  });
-}
-
-/**
- * Display label for a lobby's game mode, e.g. "Free for All",
- * "Trios (10 teams of 3)" or "5 teams of 20". A team count that splits the
- * lobby evenly into teams of 2-4 is named like the matching preset; an uneven
- * split shows only the team count.
- */
-export function getGameModeLabel(gameConfig: GameConfig): string {
-  const { gameMode, gameType, nations, playerTeams, maxPlayers } = gameConfig;
-
-  if (gameMode !== GameMode.Team) {
-    return translateText("game_mode.ffa");
-  }
-
-  if (playerTeams === HumansVsNations) {
-    // Only public HvN on default nations matches the nation count to the humans.
-    return maxPlayers && gameType === GameType.Public && nations === "default"
-      ? translateText("public_lobby.teams_hvn_detailed", { num: maxPlayers })
-      : translateText("public_lobby.teams_hvn");
-  }
-
-  if (playerTeams === Duos || playerTeams === Trios || playerTeams === Quads) {
-    const playersPerTeam = TEAM_PRESET_SIZES[playerTeams];
-    const teamCount = Math.floor((maxPlayers ?? 0) / playersPerTeam);
-    return teamCount > 0
-      ? presetTeamsLabel(playerTeams, teamCount, playersPerTeam)
-      : translateText(`host_modal.teams_${playerTeams}`);
-  }
-
-  if (playerTeams === undefined || playerTeams <= 0) {
-    return translateText("mode_selector.teams_title");
-  }
-  const players = maxPlayers ?? 0;
-  if (players <= 0 || players % playerTeams !== 0) {
-    return translateText("mode_selector.teams_count", {
-      teamCount: playerTeams,
-    });
-  }
-  const playersPerTeam = players / playerTeams;
-  const preset = TEAM_PRESET_BY_SIZE[playersPerTeam];
-  return preset !== undefined
-    ? presetTeamsLabel(preset, playerTeams, playersPerTeam)
-    : translateText("mode_selector.teams_of", {
-        teamCount: playerTeams,
-        playersPerTeam,
-      });
-}
-
-export interface ModifierInfo {
-  /** Translation key for detailed label (e.g. "game_settings.random_spawn") */
-  labelKey: string;
-  /** Translation key for badge/short label (e.g. "public_game_modifier.random_spawn") */
-  badgeKey: string;
-  /** Parameters to pass to translateText for the badge key */
-  badgeParams?: Record<string, string | number>;
-  /** The raw value if applicable (e.g. startingGold amount) */
-  value?: number;
-  /** Pre-formatted display string (used instead of renderNumber when provided) */
-  formattedValue?: string;
-}
-
-/**
- * Returns structured modifier info for both detailed config display and badges.
- */
-export function getActiveModifiers(
-  modifiers: PublicGameModifiers | undefined,
-  doomsdayClockSpeed?: DoomsdayClockSpeed,
-): ModifierInfo[] {
-  if (!modifiers) return [];
-  const result: ModifierInfo[] = [];
-  if (modifiers.isRandomSpawn) {
-    result.push({
-      labelKey: "game_settings.random_spawn",
-      badgeKey: "public_game_modifier.random_spawn",
-    });
-  }
-  if (modifiers.isCompact) {
-    result.push({
-      labelKey: "game_settings.compact_map",
-      badgeKey: "public_game_modifier.compact_map",
-    });
-  }
-  if (modifiers.isCrowded) {
-    result.push({
-      labelKey: "host_modal.crowded",
-      badgeKey: "public_game_modifier.crowded",
-    });
-  }
-  if (modifiers.isHardNations) {
-    result.push({
-      labelKey: "host_modal.hard_nations",
-      badgeKey: "public_game_modifier.hard_nations",
-    });
-  }
-  if (modifiers.startingGold) {
-    const millions = parseFloat(
-      (modifiers.startingGold / 1_000_000).toPrecision(12),
-    );
-    result.push({
-      labelKey: "public_game_modifier.starting_gold_label",
-      badgeKey: "public_game_modifier.starting_gold",
-      badgeParams: {
-        amount: millions,
-      },
-      value: modifiers.startingGold,
-      formattedValue: `${millions}M`,
-    });
-  }
-  if (modifiers.goldMultiplier) {
-    result.push({
-      labelKey: "game_settings.gold_multiplier",
-      badgeKey: "public_game_modifier.gold_multiplier",
-      badgeParams: {
-        amount: modifiers.goldMultiplier,
-      },
-      value: modifiers.goldMultiplier,
-      formattedValue: `x${modifiers.goldMultiplier}`,
-    });
-  }
-  if (modifiers.isAlliancesDisabled) {
-    result.push({
-      labelKey: "public_game_modifier.disable_alliances_label",
-      badgeKey: "public_game_modifier.disable_alliances",
-      formattedValue: translateText("common.disabled"),
-    });
-  }
-  if (modifiers.isPortsDisabled) {
-    result.push({
-      labelKey: "public_game_modifier.ports_disabled_label",
-      badgeKey: "public_game_modifier.ports_disabled",
-    });
-  }
-  if (modifiers.isNukesDisabled) {
-    result.push({
-      labelKey: "public_game_modifier.nukes_disabled_label",
-      badgeKey: "public_game_modifier.nukes_disabled",
-    });
-  }
-  if (modifiers.isSAMsDisabled) {
-    result.push({
-      labelKey: "public_game_modifier.sams_disabled_label",
-      badgeKey: "public_game_modifier.sams_disabled",
-    });
-  }
-  if (modifiers.isPeaceTime) {
-    result.push({
-      labelKey: "public_game_modifier.peace_time_label",
-      badgeKey: "public_game_modifier.peace_time",
-    });
-  }
-  if (modifiers.isWaterNukes) {
-    result.push({
-      labelKey: "game_settings.water_nukes",
-      badgeKey: "public_game_modifier.water_nukes",
-    });
-  }
-  if (modifiers.isDoomsdayClock) {
-    const info: ModifierInfo = {
-      labelKey: "game_settings.doomsday_clock",
-      badgeKey: "public_game_modifier.doomsday_clock",
-    };
-    // Name the preset when we know it; older payloads / non-rotation lobbies
-    // may not carry a speed, so keep the plain badge as a fallback.
-    if (doomsdayClockSpeed !== undefined) {
-      info.badgeKey = "public_game_modifier.doomsday_clock_with_speed";
-      info.badgeParams = {
-        speed: translateText(`doomsday_clock_speed.${doomsdayClockSpeed}`),
-      };
-    }
-    result.push(info);
-  }
-  return result;
-}
-
-/**
- * Returns an array of translated modifier labels for badge display.
- */
-export function getModifierLabels(
-  modifiers: PublicGameModifiers | undefined,
-  doomsdayClockSpeed?: DoomsdayClockSpeed,
-): string[] {
-  return getActiveModifiers(modifiers, doomsdayClockSpeed).map((m) =>
-    translateText(m.badgeKey, m.badgeParams),
-  );
-}
 
 export function renderDuration(totalSeconds: number): string {
   // Floor once so fractional inputs don't leak through to the seconds
@@ -286,26 +30,6 @@ export function renderDuration(totalSeconds: number): string {
   if (seconds > 0 || parts.length === 0)
     parts.push(`${seconds}${translateText("common.duration_second_short")}`);
   return parts.join(" ");
-}
-
-export async function copyToClipboard(
-  text: string,
-  onSuccess?: () => void,
-  onReset?: () => void,
-  timeout = 2000,
-): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-    if (onSuccess) onSuccess();
-    if (onReset) {
-      setTimeout(() => {
-        onReset();
-      }, timeout);
-    }
-  } catch (err) {
-    console.warn("Failed to copy to clipboard", err);
-    throw err;
-  }
 }
 
 export function formatPercentage(value: number): string {
@@ -367,39 +91,6 @@ export function createCanvas(): HTMLCanvasElement {
   canvas.style.touchAction = "none";
 
   return canvas;
-}
-/**
- * A polyfill for crypto.randomUUID that provides fallback implementations
- * for older browsers, particularly Safari versions < 15.4
- */
-export function generateCryptoRandomUUID(): string {
-  // Type guard to check if randomUUID is available
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-
-  // Fallback using crypto.getRandomValues
-  if (typeof crypto !== "undefined" && "getRandomValues" in crypto) {
-    return (([1e7] as any) + -1e3 + -4e3 + -8e3 + -1e11).replace(
-      /[018]/g,
-      (c: number): string =>
-        (
-          c ^
-          (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))
-        ).toString(16),
-    );
-  }
-
-  // Last resort fallback using Math.random
-  // Note: This is less cryptographically secure but ensures functionality
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-    /[xy]/g,
-    (c: string): string => {
-      const r: number = (Math.random() * 16) | 0;
-      const v: number = c === "x" ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
-    },
-  );
 }
 
 export function formatDebugTranslation(
@@ -519,13 +210,6 @@ export const translateText = (
     return message;
   }
 };
-
-/**
- * Whether `key` is translated in the player's own language, rather than only
- * in the English that translateText falls back to.
- */
-export const hasOwnTranslation = (key: string): boolean =>
-  getCachedLangSelector()?.translations?.[key] !== undefined;
 
 export interface HasClanTag {
   clanTag?: string | null | (() => string | null);
@@ -656,14 +340,6 @@ export function getMessageTypeClasses(type: MessageType): string {
   }
 }
 
-export function getModifierKey(): string {
-  return Platform.isMac ? "⌘" : "Ctrl";
-}
-
-export function getAltKey(): string {
-  return Platform.isMac ? "⌥" : "Alt";
-}
-
 export function getGamesPlayed(): number {
   try {
     return parseInt(localStorage.getItem("gamesPlayed") ?? "0", 10) || 0;
@@ -678,16 +354,6 @@ export function incrementGamesPlayed(): void {
     localStorage.setItem("gamesPlayed", (getGamesPlayed() + 1).toString());
   } catch (error) {
     console.warn("Failed to increment games played in localStorage:", error);
-  }
-}
-
-export function isInIframe(): boolean {
-  try {
-    return window.self !== window.top;
-  } catch (e) {
-    // If we can't access window.top due to cross-origin restrictions,
-    // we're definitely in an iframe
-    return true;
   }
 }
 
@@ -762,45 +428,6 @@ export async function getSvgAspectRatio(src: string): Promise<number | null> {
   return null;
 }
 
-export function getDiscordAvatarUrl(user: {
-  id: string;
-  avatar: string | null;
-  discriminator?: string;
-}): string | null {
-  if (user.avatar) {
-    // - id is a Discord numeric string
-    // - avatar is a hash, optionally prefixed with "a_" for animated avatars
-    const validId = /^\d+$/.test(user.id);
-    const validAvatar =
-      /^[a-f0-9]+$/.test(user.avatar) || /^a_[a-f0-9]+$/.test(user.avatar);
-
-    if (validId && validAvatar) {
-      const extension = user.avatar.startsWith("a_") ? "gif" : "png";
-      return `https://cdn.discordapp.com/avatars/${encodeURIComponent(user.id)}/${encodeURIComponent(user.avatar)}.${extension}?size=64`;
-    }
-  }
-
-  if (user.discriminator !== undefined) {
-    const idx = Number(user.discriminator) % 5;
-    return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
-  }
-
-  return null;
-}
-export function calculateServerTimeOffset(
-  serverTimeMs: number,
-  localNowMs: number = Date.now(),
-): number {
-  return serverTimeMs - localNowMs;
-}
-
-export function getServerNow(
-  serverTimeOffsetMs: number,
-  localNowMs: number = Date.now(),
-): number {
-  return localNowMs + serverTimeOffsetMs;
-}
-
 export function showToast(
   message: string,
   color: "red" | "green",
@@ -813,126 +440,7 @@ export function showToast(
   );
 }
 
-const RELOAD_TOAST_KEY = "reloadToast";
-
-// Holds the translated text, not the key: on the far side of the reload the
-// language files may not have landed yet and translateText would echo the key.
-export function showToastAfterReload(message: string): void {
-  try {
-    sessionStorage.setItem(RELOAD_TOAST_KEY, message);
-  } catch {
-    // sessionStorage unavailable: the reload still happens, just silently.
-  }
-}
-
-export function flushReloadToast(): void {
-  let message: string | null;
-  try {
-    message = sessionStorage.getItem(RELOAD_TOAST_KEY);
-    sessionStorage.removeItem(RELOAD_TOAST_KEY);
-  } catch {
-    return;
-  }
-  if (message) showToast(message, "green");
-}
-
-export function getSecondsUntilServerTimestamp(
-  targetServerTimestampMs: number,
-  serverTimeOffsetMs: number,
-  localNowMs: number = Date.now(),
-): number {
-  return Math.max(
-    0,
-    Math.floor(
-      (targetServerTimestampMs - getServerNow(serverTimeOffsetMs, localNowMs)) /
-        1000,
-    ),
-  );
-}
-
-/**
- * Reload to pick up a newly deployed version. The app shell is served with a
- * shared-cache TTL (RenderHtml.ts), so a plain reload can hand back the same
- * stale HTML — with the old gitCommit baked in — for minutes after a deploy,
- * and a version check that reloads on mismatch would loop. A unique query
- * string misses the shared cache, so the origin renders the current shell.
- *
- * On a deployment host (the document landed there for a cross-host game, or
- * via a stale bookmark) a same-origin reload re-fetches that SAME
- * deployment's shell — for a drained or outdated deployment that can never
- * help, and the drain prompt would loop forever. The apex serves the active
- * deployment's shell, so go there instead, keeping the path (letter routing
- * re-resolves a /game/<id>) minus the origin-specific worker prefix.
- */
-export function reloadForUpdate(): void {
-  const url = new URL(window.location.href);
-  const siteHost = ClientEnv.siteHost();
-  if (siteHost !== undefined && url.host !== siteHost) {
-    url.protocol = "https:";
-    url.host = siteHost;
-  }
-  // Both prefixes encode what this reload exists to leave behind, whichever
-  // host answers it. `/v/<commit>/` is immutable by design (multi-server
-  // v2): it pins the bundle, so reloading it as-is re-serves the very
-  // version being updated away from, forever, cache-buster or not. And
-  // `/w<n>/` was resolved against the old worker count, which a new version
-  // may have changed — letter routing picks the worker again on the way
-  // back in. apexPathFor drops exactly these two, in either order.
-  url.pathname = apexPathFor(url.pathname);
-  url.searchParams.set("v", Date.now().toString(36));
-  window.location.replace(url.toString());
-}
-
-/**
- * The path to ask the apex for when re-entering through it. Both prefixes a
- * path can carry are specific to where the page came from, and the apex
- * re-resolves what they encoded: `/w<n>/` is one deployment's worker (letter
- * routing picks the worker again), and `/v/<commit>/` pins the version whose
- * staleness is the reason for going to the apex in the first place. Pure so
- * the rule is testable without booting Main.
- */
-export function apexPathFor(pathname: string): string {
-  const { path } = stripVersionPrefix(pathname);
-  return path.replace(/^\/w\d+\//, "/");
-}
-
-/**
- * A same-origin path as THIS document should write it into its own history:
- * re-prefixed with the page's `/v/<commit>/` when it has one, unchanged
- * otherwise.
- *
- * History entries are not share links, and the two want opposite things. A
- * share link is version-free on purpose — the recipient should be routed by
- * whatever version the game's server runs when they open it. A history entry
- * is this tab's own URL: pressing F5 on it must reload THE BUNDLE THIS PAGE
- * IS RUNNING, and on a pinned page a version-free path would silently hand
- * the player `latest` instead, mid-game.
- *
- * Reads the pin captured at boot rather than the live pathname: the join
- * flow rewrites the address bar to the version-free share URL before this
- * ever runs in a game, and a version-free history entry is precisely what
- * this exists to avoid writing (PagePin.ts).
- */
-export function currentPagePath(path: string): string {
-  const commit = pagePin();
-  return commit === null ? path : `/v/${commit}${path}`;
-}
-
-/**
- * Where "leave to the menu" navigations should land. On a deployment host
- * the local homepage may belong to a drained deployment whose public lobby
- * list is empty; the apex always fronts the active one. Same-host,
- * standalone deployments (no siteHost injected), dev, and desktop keep the
- * plain root.
- *
- * The plain root is also the right answer on a `/v/<commit>/` page, and for
- * the same reason: "/" is version-free, so a player leaving to the menu
- * lands on `latest` rather than back on the build they were leaving.
- */
+/** Where "leave to the menu" navigations should land. */
 export function homeHref(): string {
-  const siteHost = ClientEnv.siteHost();
-  if (siteHost !== undefined && window.location.host !== siteHost) {
-    return `https://${siteHost}/`;
-  }
   return "/";
 }

@@ -14,19 +14,6 @@ export function sliderToNationsConfig(
   return sliderValue;
 }
 
-/**
- * Maps a nations config value to a slider-friendly number.
- * "disabled" → 0, "default" → defaultNationCount, number → number.
- */
-export function nationsConfigToSlider(
-  nations: GameConfig["nations"],
-  defaultNationCount: number,
-): number {
-  if (nations === "disabled") return 0;
-  if (nations === "default") return defaultNationCount;
-  return nations;
-}
-
 export function toOptionalNumber(
   value: number | string | undefined,
 ): number | undefined {

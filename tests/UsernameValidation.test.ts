@@ -1,22 +1,19 @@
 import {
-  RENDERABLE_NAME_CHAR_RE,
+  RENDERABLE_NAME_CHARS,
   UsernameSchema,
 } from "@openfront/engine-api/Schemas";
 import { readFileSync } from "fs";
 import { describe, expect, it } from "vitest";
 import {
-  AccountUsernameSchema,
-  MAX_ACCOUNT_USERNAME_LENGTH,
   MAX_USERNAME_LENGTH,
   MIN_USERNAME_LENGTH,
   validateUsername,
 } from "../src/client/validations/username";
 
-describe("free-form username length", () => {
-  it("matches the account-username cap", () => {
-    expect(MAX_USERNAME_LENGTH).toBe(MAX_ACCOUNT_USERNAME_LENGTH);
-  });
+// A single character of the renderable set.
+const RENDERABLE_NAME_CHAR_RE = new RegExp(`^[${RENDERABLE_NAME_CHARS}]$`, "u");
 
+describe("free-form username length", () => {
   it("accepts a name of exactly the maximum length", () => {
     expect(validateUsername("a".repeat(MAX_USERNAME_LENGTH)).isValid).toBe(
       true,
@@ -38,12 +35,9 @@ describe("free-form username length", () => {
     );
   });
 
-  it("leaves the wire schema able to read older records", () => {
-    // UsernameSchema backs PlayerSchema, so it parses names already written
-    // into archived GameRecords. Narrowing it doesn't rewrite them, it makes
-    // them unparseable — which dead-ends replay links (JoinLobbyModal parses
-    // before the gitCommit check that would fall back to the versioned shell)
-    // and share previews. The form cap is enforced separately.
+  it("leaves the engine schema able to read longer names", () => {
+    // UsernameSchema backs PlayerSchema. The form cap is enforced separately,
+    // so the schema stays wider than what the field accepts.
     const legacy = "a".repeat(MAX_USERNAME_LENGTH + 5);
     expect(UsernameSchema.safeParse(legacy).success).toBe(true);
     expect(validateUsername(legacy).isValid).toBe(false);
@@ -160,10 +154,9 @@ describe("free-form username charset", () => {
     });
   });
 
-  it("keeps the wire schema a superset of the form", () => {
-    // The form rule may narrow; the wire schema may only widen. A free-form
-    // name the field accepts but the wire rejects closes the join with 1002
-    // after Play has been enabled.
+  it("keeps the engine schema a superset of the form", () => {
+    // The form rule may narrow; the engine schema may only widen. A name the
+    // field accepts but the engine rejects would break the game start.
     for (const name of [
       "foo bar",
       "foo-bar",
@@ -176,27 +169,5 @@ describe("free-form username charset", () => {
       expect(validateUsername(name).isValid, name).toBe(true);
       expect(UsernameSchema.safeParse(name).success, name).toBe(true);
     }
-  });
-});
-
-describe("account names on the wire", () => {
-  // Verified play submits the account name and skips free-form validation, so
-  // anything AccountUsernameSchema accepts has to survive UsernameSchema or
-  // the join is closed with 1002 after the UI has enabled Play.
-  const names = [
-    "cool-guy",
-    "cool_guy",
-    "Cool Guy",
-    "cool-guy-2",
-    "a-b_c d",
-    "abc",
-    "a".repeat(MAX_ACCOUNT_USERNAME_LENGTH),
-  ];
-
-  it.each(names)("accepts the account name %s", (name) => {
-    expect(AccountUsernameSchema.safeParse(name).success).toBe(true);
-    expect(UsernameSchema.safeParse(name).success).toBe(true);
-    // The server-rendered display name carries a .dddd discriminator.
-    expect(UsernameSchema.safeParse(`${name}.1234`).success).toBe(true);
   });
 });

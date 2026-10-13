@@ -1,6 +1,5 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
-  GameType,
   PlayerInfo,
   PlayerType,
   SpawnArea,
@@ -117,12 +116,8 @@ export class SpawnExecution implements Execution {
     player.setSpawnTile(spawn.center);
     this.mg.stats().recordSpawnTile(player, spawn.center);
 
-    if (
-      this.mg.config().gameConfig().gameType === GameType.Singleplayer &&
-      this.playerInfo.playerType === PlayerType.Human
-    ) {
-      // In singleplayer, spawn ends when player selects
-      // a spawn location.
+    if (this.playerInfo.playerType === PlayerType.Human) {
+      // The spawn phase ends when the player selects a spawn location.
       this.mg.endSpawnPhase();
     }
   }

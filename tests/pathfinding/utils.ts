@@ -252,25 +252,22 @@ export async function setupFromPath(
   const gameMap = await genTerrainFromBin(manifest.map, mapBinBuffer);
   const miniGameMap = await genTerrainFromBin(manifest.map4x, miniMapBinBuffer);
 
-  const config = new TestConfig(
-    {
-      gameMap: GameMapType.Asia,
-      gameMapSize: GameMapSize.Normal,
-      gameMode: GameMode.FFA,
-      gameType: GameType.Singleplayer,
-      difficulty: Difficulty.Medium,
-      nations: "default",
-      donateGold: false,
-      donateTroops: false,
-      bots: 0,
-      infiniteGold: false,
-      infiniteTroops: false,
-      instantBuild: false,
-      randomSpawn: false,
-      ...gameConfig,
-    },
-    false,
-  );
+  const config = new TestConfig({
+    gameMap: GameMapType.Asia,
+    gameMapSize: GameMapSize.Normal,
+    gameMode: GameMode.FFA,
+    gameType: GameType.Singleplayer,
+    difficulty: Difficulty.Medium,
+    nations: "default",
+    donateGold: false,
+    donateTroops: false,
+    bots: 0,
+    infiniteGold: false,
+    infiniteTroops: false,
+    instantBuild: false,
+    randomSpawn: false,
+    ...gameConfig,
+  });
 
   return createGame(humans, [], gameMap, miniGameMap, config);
 }

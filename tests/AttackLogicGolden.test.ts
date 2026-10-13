@@ -17,7 +17,7 @@ import {
   EngineConfig,
 } from "@openfront/engine/configuration/EngineConfig";
 
-const config = new EngineConfig({} as GameConfig, false);
+const config = new EngineConfig({} as GameConfig);
 
 type Defender = NonNullable<AttackLogicInput["defender"]>;
 

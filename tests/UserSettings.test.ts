@@ -95,28 +95,6 @@ describe("UserSettings tutorial dismissal", () => {
   });
 });
 
-describe("UserSettings lobby start alerts", () => {
-  beforeEach(resetUserSettingsState);
-
-  it("defaults off and round-trips both choices", () => {
-    const settings = new UserSettings();
-    expect(settings.lobbyStartAlerts()).toBe(false);
-
-    settings.setLobbyStartAlerts(true);
-    expect(settings.lobbyStartAlerts()).toBe(true);
-    expect(localStorage.getItem("settings.lobbyStartAlerts")).toBe("true");
-
-    settings.setLobbyStartAlerts(false);
-    expect(settings.lobbyStartAlerts()).toBe(false);
-    expect(localStorage.getItem("settings.lobbyStartAlerts")).toBe("false");
-  });
-
-  it("falls back to off for malformed storage", () => {
-    localStorage.setItem("settings.lobbyStartAlerts", "enabled");
-    expect(new UserSettings().lobbyStartAlerts()).toBe(false);
-  });
-});
-
 describe("UserSettings cosmetic loadouts", () => {
   beforeEach(resetUserSettingsState);
 
@@ -595,7 +573,6 @@ describe("getDefaultKeybinds", () => {
     expect(keybinds.resetGfx).toBe("KeyR");
     expect(keybinds.selectAllWarships).toBe("KeyX");
     expect(keybinds.emojiMenu).toBe("KeyF");
-    expect(keybinds.quickChat).toBe("KeyR");
     expect(keybinds.targetPlayer).toBe("KeyN");
     expect(keybinds.buildMenuModifier).toBe("ControlLeft");
     expect(keybinds.moveUpArrow).toBe("ArrowUp");
@@ -640,18 +617,6 @@ describe("UserSettings audio volumes", () => {
 
     localStorage.setItem("settings.backgroundMusicVolume", "-1");
     expect(new UserSettings().audioVolume("music")).toBe(0);
-  });
-});
-
-describe("UserSettings replay viewer", () => {
-  beforeEach(resetUserSettingsState);
-
-  it("is off by default, and remembers being turned on", () => {
-    expect(new UserSettings().replayViewer()).toBe(false);
-    new UserSettings().setReplayViewer(true);
-    expect(new UserSettings().replayViewer()).toBe(true);
-    new UserSettings().setReplayViewer(false);
-    expect(new UserSettings().replayViewer()).toBe(false);
   });
 });
 
@@ -735,14 +700,6 @@ describe("UserSettings keybinds with new defaults", () => {
       value: "Null",
       key: "",
     });
-  });
-
-  it("keeps quick chat on R when the player saved reset graphics there", () => {
-    store({ resetGfx: { value: "KeyR", key: "r" } });
-    const keybinds = new UserSettings().keybinds(false);
-
-    expect(keybinds.resetGfx).toBe("KeyR");
-    expect(keybinds.quickChat).toBe("KeyR");
   });
 
   it("lets modifier keys stay shared", () => {

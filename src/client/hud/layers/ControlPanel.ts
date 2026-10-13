@@ -1,5 +1,5 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
-import { GameMode, GameType, Gold } from "@openfront/engine-api/game/GameTypes";
+import { Gold } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { ClientID } from "@openfront/engine-api/Schemas";
 import { Config } from "@openfront/engine-lib/configuration/Config";
@@ -247,27 +247,12 @@ export class ControlPanel extends LitElement implements Controller {
   ): { type: "warning" | "info"; message: string } | null {
     const currentTick = this.game.ticks();
 
-    // Army limit warning
-    const { gameMode, gameType } = config.gameConfig();
-    const isPublicTeamGame =
-      gameMode === GameMode.Team && gameType === GameType.Public;
-    const canDonateTroops = config.donateTroops();
-    if (isPublicTeamGame && canDonateTroops) {
-      const ratio = this._troops / Math.max(this._maxTroops, 1);
-      if (ratio >= config.armyLimitWarningThreshold()) {
-        return {
-          type: "warning",
-          message: "control_panel.army_limit_warning",
-        };
-      }
-    }
-
     // Low troops (Less than 1k) warning
     if (this._troops < 10000 && this._troops > 0) {
       return { type: "warning", message: "control_panel.low_troops_warning" };
     }
 
-    // Info messages: check nearby players for traitors, AFK allies, AFK teammates
+    // Info messages: check nearby players for traitors
     for (const nearbyID of this._nearbyPlayerIDs) {
       let other;
       try {
@@ -286,18 +271,6 @@ export class ControlPanel extends LitElement implements Controller {
 
       if (other.isTraitor() && player.isAlliedWith(other)) {
         return { type: "info", message: "control_panel.traitor_neighbor_info" };
-      }
-      if (other.isDisconnected() && player.isAlliedWith(other)) {
-        return {
-          type: "info",
-          message: "control_panel.allied_afk_neighbor_info",
-        };
-      }
-      if (other.isDisconnected() && player.isOnSameTeam(other)) {
-        return {
-          type: "info",
-          message: "control_panel.teammate_afk_neighbor_info",
-        };
       }
     }
 

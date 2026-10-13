@@ -1,66 +1,13 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-// Mock the 'maps' array from '@openfront/engine-api/game/GameTypes' to ensure consistent test results
-// for normaliseMapKey without relying on actual game data.
-vi.mock("@openfront/engine-api/game/GameTypes", async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof import("@openfront/engine-api/game/GameTypes")
-    >();
-  return {
-    ...actual,
-    maps: [
-      { type: "Earth", id: "earth" },
-      { type: "Tourney 2 Teams", id: "tourney1" },
-      { type: "A Map with Spaces", id: "amapwithspaces" },
-      { type: "The.Dot.Map", id: "thedotmap" },
-    ],
-  };
-});
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { renderTroops } from "@openfront/engine-lib/Format";
 import { LangSelector } from "../src/client/LangSelector";
 import {
   formatKeyForDisplay,
   formatPercentage,
-  normaliseMapKey,
   renderDuration,
   translateText,
 } from "../src/client/Utils";
-
-describe("normaliseMapKey", () => {
-  it("should normalise a simple map name correctly", () => {
-    expect(normaliseMapKey("Earth")).toBe("earth");
-  });
-
-  it("should normalise a map name with spaces found in maps array", () => {
-    expect(normaliseMapKey("Tourney 2 Teams")).toBe("tourney1");
-  });
-
-  it("should normalise a map name with spaces not found in maps array", () => {
-    expect(normaliseMapKey("New Map Name")).toBe("newmapname");
-  });
-
-  it("should normalise a map name with dots not found in maps array", () => {
-    expect(normaliseMapKey("Map.With.Dots")).toBe("mapwithdots");
-  });
-
-  it("should normalise a map name with mixed characters and spaces", () => {
-    expect(normaliseMapKey("A Map with Spaces")).toBe("amapwithspaces");
-  });
-
-  it("should normalise a map name with dots found in maps array", () => {
-    expect(normaliseMapKey("The.Dot.Map")).toBe("thedotmap");
-  });
-
-  it("should handle empty string input", () => {
-    expect(normaliseMapKey("")).toBe("");
-  });
-
-  it("should handle map names that are only spaces", () => {
-    expect(normaliseMapKey("   ")).toBe("");
-  });
-});
 
 describe("renderDuration", () => {
   beforeEach(() => {

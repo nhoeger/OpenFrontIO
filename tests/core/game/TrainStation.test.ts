@@ -229,7 +229,7 @@ describe("EngineConfig.trainGold trade stop penalty", () => {
       disableNavMesh: false,
       randomSpawn: false,
     };
-    config = new EngineConfig(gameConfig, false);
+    config = new EngineConfig(gameConfig);
     mockPlayer = { isLobbyCreator: () => false } as unknown as Player;
   });
 

@@ -50,8 +50,11 @@ export const SNAPSHOT_MAGIC = "OpenFrontGameSnapshot";
 /**
  * Version of the root layout below. Everything inside it carries its own
  * record version, so this only moves when the root itself changes.
+ *
+ * 2: the game config lost its lobby-only fields and `gameType` its Public and
+ * Private values (see migrateRoot).
  */
-export const SNAPSHOT_FORMAT_VERSION = 1;
+export const SNAPSHOT_FORMAT_VERSION = 2;
 
 const ExecRecordSchema = z.object({
   t: z.string(),
@@ -216,6 +219,23 @@ export interface SnapshotHeader {
   gameConfig: GameConfig;
 }
 
+/**
+ * Brings a root written by an older build up to the current layout. Snapshots
+ * of format 1 recorded games that could be Public or Private; every game is a
+ * Singleplayer one now. The config's other removed fields are dropped when
+ * GameConfigSchema parses it.
+ */
+function migrateRoot(raw: Record<string, unknown>): Record<string, unknown> {
+  if (raw.format !== 1) return raw;
+  const gameConfig = raw.gameConfig;
+  if (typeof gameConfig !== "object" || gameConfig === null) return raw;
+  return {
+    ...raw,
+    format: 2,
+    gameConfig: { ...gameConfig, gameType: "Singleplayer" },
+  };
+}
+
 function decodeRoot(bytes: Uint8Array): Root {
   let raw: unknown;
   try {
@@ -236,7 +256,9 @@ function decodeRoot(bytes: Uint8Array): Root {
       `snapshot format ${String(format)} is newer than this build supports (${SNAPSHOT_FORMAT_VERSION})`,
     );
   }
-  const root = RootSchema.safeParse(raw);
+  const root = RootSchema.safeParse(
+    migrateRoot(raw as Record<string, unknown>),
+  );
   if (!root.success) {
     throw new SnapshotError(`malformed snapshot: ${root.error.message}`);
   }

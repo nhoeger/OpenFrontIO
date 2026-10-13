@@ -10,18 +10,19 @@ import { Game, Player } from "@openfront/engine/game/Game";
 import { setup } from "./util/Setup";
 import { executeTicks } from "./util/utils";
 
-// Aftergame fun (nuking your own teammate once a winner is decided) is meant for
-// human vs human multiplayer. In singleplayer a team can "insta-win" while the
-// human is still actively playing against AI teammates, so the feature must stay
-// disabled there. Covers PlayerImpl.nukeSpawn and SAMTargetingSystem.isValidNukeTarget.
+// A team can "insta-win" while the human is still actively playing against AI
+// teammates, so nuking your own teammate must stay blocked once a winner is
+// decided. Covers PlayerImpl.nukeSpawn and SAMTargetingSystem.isValidNukeTarget.
 describe("Aftergame teammate nuking", () => {
-  async function setupTeammates(
-    gameType: GameType,
-  ): Promise<{ game: Game; p1: Player; p2: Player }> {
+  async function setupTeammates(): Promise<{
+    game: Game;
+    p1: Player;
+    p2: Player;
+  }> {
     const game = await setup(
       "plains",
       {
-        gameType,
+        gameType: GameType.Singleplayer,
         gameMode: GameMode.Team,
         playerTeams: 2,
         infiniteGold: true,
@@ -46,7 +47,7 @@ describe("Aftergame teammate nuking", () => {
 
   describe("PlayerImpl.nukeSpawn (targeting a teammate)", () => {
     test("singleplayer: teammate stays un-nukeable even after the game is won", async () => {
-      const { game, p1 } = await setupTeammates(GameType.Singleplayer);
+      const { game, p1 } = await setupTeammates();
 
       // Normal pre-game behavior: teammates are never nukeable.
       expect(p1.canBuild(UnitType.AtomBomb, game.ref(5, 5))).toBe(false);
@@ -56,19 +57,6 @@ describe("Aftergame teammate nuking", () => {
 
       // Aftergame is disabled in singleplayer, so this stays blocked.
       expect(p1.canBuild(UnitType.AtomBomb, game.ref(5, 5))).toBe(false);
-    });
-
-    test("multiplayer: teammate becomes nukeable once the game is won", async () => {
-      const { game, p1 } = await setupTeammates(GameType.Public);
-
-      // Normal pre-game behavior: teammates are never nukeable.
-      expect(p1.canBuild(UnitType.AtomBomb, game.ref(5, 5))).toBe(false);
-
-      game.setWinner(p1, game.stats().stats());
-      expect(game.getWinner()).not.toBeNull();
-
-      // Aftergame fun is preserved for human vs human multiplayer.
-      expect(p1.canBuild(UnitType.AtomBomb, game.ref(5, 5))).not.toBe(false);
     });
   });
 
@@ -85,7 +73,7 @@ describe("Aftergame teammate nuking", () => {
     }
 
     test("singleplayer: a teammate's SAM does not intercept a teammate's nuke after the game is won", async () => {
-      const { game, p1, p2 } = await setupTeammates(GameType.Singleplayer);
+      const { game, p1, p2 } = await setupTeammates();
       game.setWinner(p1, game.stats().stats());
 
       const sam = p2.buildUnit(UnitType.SAMLauncher, game.ref(1, 1), {});
@@ -97,21 +85,6 @@ describe("Aftergame teammate nuking", () => {
       // SAM never fires on the teammate's nuke, so it stays in flight.
       expect(sam.isInCooldown()).toBeFalsy();
       expect(p1.units(UnitType.AtomBomb)).toHaveLength(1);
-    });
-
-    test("multiplayer: a teammate's SAM intercepts a teammate's nuke after the game is won (aftergame fun)", async () => {
-      const { game, p1, p2 } = await setupTeammates(GameType.Public);
-      game.setWinner(p1, game.stats().stats());
-
-      const sam = p2.buildUnit(UnitType.SAMLauncher, game.ref(1, 1), {});
-      game.addExecution(new SAMLauncherExecution(p2, null, sam));
-
-      launchNukeNearSam(p1, game);
-      executeTicks(game, 3);
-
-      // Aftergame fun is preserved: the SAM shoots the teammate's nuke down.
-      expect(sam.isInCooldown()).toBeTruthy();
-      expect(p1.units(UnitType.AtomBomb)).toHaveLength(0);
     });
   });
 });

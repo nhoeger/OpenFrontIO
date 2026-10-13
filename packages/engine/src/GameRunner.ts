@@ -2,7 +2,6 @@ import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
   AllPlayers,
   BuildableUnit,
-  GameType,
   GameUpdates,
   HumanStatsSnapshot,
   NameViewData,
@@ -28,7 +27,6 @@ import { EngineConfig } from "./configuration/EngineConfig";
 import { DoomsdayClockExecution } from "./execution/DoomsdayClockExecution";
 import { Executor } from "./execution/ExecutionManager";
 import { RecomputeRailClusterExecution } from "./execution/RecomputeRailClusterExecution";
-import { SpawnTimerExecution } from "./execution/SpawnTimerExecution";
 import { WinCheckExecution } from "./execution/WinCheckExecution";
 import { Game, Player } from "./game/Game";
 import { createGame } from "./game/GameImpl";
@@ -47,7 +45,7 @@ export async function createGameRunner(
   map: MapFiles,
   callBack: (gu: GameUpdateViewData | ErrorUpdate) => void,
 ): Promise<GameRunner> {
-  const config = new EngineConfig(gameStart.config, false, gameStart.listed);
+  const config = new EngineConfig(gameStart.config);
   const gameMap = await loadGameMap(gameStart.config, map);
   const random = new PseudoRandom(simpleHash(gameStart.gameID));
 
@@ -57,10 +55,8 @@ export async function createGameRunner(
       PlayerType.Human,
       p.clientID,
       random.nextID(),
-      p.isLobbyCreator ?? false,
+      false,
       p.clanTag,
-      p.friends ?? [],
-      p.teamIndex ?? null,
     );
   });
 
@@ -83,12 +79,7 @@ export async function createGameRunner(
 
   const gr = new GameRunner(
     game,
-    new Executor(
-      game,
-      gameStart.gameID,
-      clientID,
-      gameStart.tribes?.map((t) => t.name),
-    ),
+    new Executor(game, gameStart.gameID, clientID),
     callBack,
   );
   gr.init();
@@ -112,7 +103,7 @@ function loadGameMap(
 /**
  * Rebuilds a runner from a snapshot (see snapshot/README.md). The game resumes
  * at the snapshot's tick: the first turn added afterwards is the turn for
- * that tick. Only runtime details (game id, listing) come from `gameStart`;
+ * that tick. Only runtime details (the game id) come from `gameStart`;
  * the config, players and all state come from the snapshot.
  */
 export async function createGameRunnerFromSnapshot(
@@ -125,7 +116,7 @@ export async function createGameRunnerFromSnapshot(
   const header = readSnapshotHeader(snapshot);
   const gameMap = await loadGameMap(header.gameConfig, map);
   const game = restoreGame(snapshot, {
-    config: (gc) => new EngineConfig(gc, false, gameStart.listed),
+    config: (gc) => new EngineConfig(gc),
     gameMap: gameMap.gameMap,
     miniGameMap: gameMap.miniGameMap,
     teamGameSpawnAreas: gameMap.teamGameSpawnAreas,
@@ -133,12 +124,7 @@ export async function createGameRunnerFromSnapshot(
   // No init(): the snapshot already holds every execution init() adds.
   return new GameRunner(
     game,
-    new Executor(
-      game,
-      gameStart.gameID,
-      clientID,
-      gameStart.tribes?.map((t) => t.name),
-    ),
+    new Executor(game, gameStart.gameID, clientID),
     callBack,
   );
 }
@@ -174,9 +160,6 @@ export class GameRunner {
   }
 
   init() {
-    if (this.game.config().gameConfig().gameType !== GameType.Singleplayer) {
-      this.game.addExecution(new SpawnTimerExecution());
-    }
     if (this.game.config().spawnNations()) {
       this.game.addExecution(...this.execManager.nationExecutions());
     }

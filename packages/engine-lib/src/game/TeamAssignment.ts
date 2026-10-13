@@ -160,24 +160,6 @@ export function assignTeams(
   return result;
 }
 
-export function assignTeamsLobbyPreview(
-  players: PlayerInfo[],
-  teams: Team[],
-  teamCount: TeamCountConfig,
-  nationCount: number,
-): Map<PlayerInfo, Team | "kicked"> {
-  const maxTeamSize = getMaxTeamSize(
-    players.length + nationCount,
-    teams.length,
-  );
-  return assignTeams(
-    players,
-    teams,
-    teamCount === Duos || teamCount === Trios || teamCount === Quads,
-    maxTeamSize,
-  );
-}
-
 export function getMaxTeamSize(numPlayers: number, numTeams: number): number {
   return Math.ceil(numPlayers / numTeams);
 }

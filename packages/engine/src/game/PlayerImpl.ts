@@ -7,7 +7,6 @@ import {
   ColoredTeams,
   EmojiMessage,
   GameMode,
-  GameType,
   Gold,
   MAX_UPGRADE_AMOUNT,
   PlayerBuildable,
@@ -1638,23 +1637,17 @@ export class PlayerImpl implements Player {
       return false;
     }
     const owner = this.mg.owner(tile);
-    // Allow nuking teammates after the game is over (aftergame fun), but not in singleplayer.
-    const gameOver =
-      mg.getWinner() !== null &&
-      mg.config().gameConfig().gameType !== GameType.Singleplayer;
     if (owner.isPlayer()) {
-      if (this.isOnSameTeam(owner) && !gameOver) {
+      if (this.isOnSameTeam(owner)) {
         return false;
       }
     }
     const config = mg.config();
 
     // Prevent launching nukes that would hit teammate structures (only in team games).
-    // Disabled after game-over so players can nuke teammates in the aftergame.
     if (
       config.gameConfig().gameMode === GameMode.Team &&
-      nukeType !== UnitType.MIRV &&
-      !gameOver
+      nukeType !== UnitType.MIRV
     ) {
       const magnitude = config.nukeMagnitudes(nukeType);
       const wouldHitTeammate = mg.anyUnitNearby(

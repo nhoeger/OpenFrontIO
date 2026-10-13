@@ -861,7 +861,7 @@ export class GameView implements GameLike {
     return this._config;
   }
   isSpectator(): boolean {
-    return !this.myPlayer()?.isAlive() || this._config.isReplay();
+    return !this.myPlayer()?.isAlive();
   }
   units(...types: UnitType[]): UnitView[] {
     if (types.length === 0) {

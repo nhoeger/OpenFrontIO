@@ -40,7 +40,6 @@ export function getDefaultKeybinds(isMac: boolean): Record<string, string> {
     breakAlliance: "KeyL",
     targetPlayer: "KeyN",
     emojiMenu: "KeyF",
-    quickChat: "KeyR",
     swapDirection: "KeyU",
     zoomOut: "KeyQ",
     zoomIn: "KeyE",
@@ -70,11 +69,8 @@ export function getDefaultKeybinds(isMac: boolean): Record<string, string> {
   };
 }
 
-// Actions that may share a key. Reset graphics only fires with its modifier
-// (altKey) held, and quick chat only without one.
-const SHARED_KEY_ACTIONS: ReadonlyArray<readonly [string, string]> = [
-  ["quickChat", "resetGfx"],
-];
+// Actions that may share a key.
+const SHARED_KEY_ACTIONS: ReadonlyArray<readonly [string, string]> = [];
 
 /** Whether actions `a` and `b` may be bound to the same key. */
 export function keysMayBeShared(a: string, b: string): boolean {
@@ -420,47 +416,6 @@ export class UserSettings {
     return this.getBool("settings.anonymousNames", false);
   }
 
-  lobbyIdVisibility() {
-    return this.getBool("settings.lobbyIdVisibility", true);
-  }
-
-  lobbyStartAlerts() {
-    return this.getBool("settings.lobbyStartAlerts", false);
-  }
-
-  setLobbyStartAlerts(value: boolean) {
-    this.setBool("settings.lobbyStartAlerts", value);
-  }
-
-  /**
-   * "Watch replay" opens the new replay viewer instead of the classic
-   * replay. Opt-in while the viewer is rolled out.
-   */
-  replayViewer() {
-    return this.getBool("settings.replayViewer", false);
-  }
-
-  setReplayViewer(value: boolean) {
-    this.setBool("settings.replayViewer", value);
-  }
-
-  steamBuildSeen() {
-    return this.getBool("settings.steamBuildSeen", false);
-  }
-
-  markSteamBuildSeen() {
-    this.setBool("settings.steamBuildSeen", true);
-  }
-
-  steamLobbyLinks(): "ask" | "steam" | "browser" {
-    const value = this.getString("settings.steamLobbyLinks", "ask");
-    return value === "steam" || value === "browser" ? value : "ask";
-  }
-
-  setSteamLobbyLinks(value: "steam" | "browser") {
-    this.setString("settings.steamLobbyLinks", value);
-  }
-
   leftClickOpensMenu() {
     return this.getBool("settings.leftClickOpensMenu", false);
   }
@@ -524,10 +479,6 @@ export class UserSettings {
 
   toggleRandomName() {
     this.setBool("settings.anonymousNames", !this.anonymousNames());
-  }
-
-  toggleLobbyIdVisibility() {
-    this.setBool("settings.lobbyIdVisibility", !this.lobbyIdVisibility());
   }
 
   toggleCursorCostLabel() {

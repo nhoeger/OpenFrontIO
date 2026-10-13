@@ -1,17 +1,7 @@
 import type { GameStartInfo } from "@openfront/engine-api/Schemas";
 import { EventBus } from "@openfront/shared/EventBus";
-import type { ClientMessage } from "@openfront/shared/WireSchemas";
-import { gunzipSync } from "node:zlib";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("../../src/client/Auth", () => ({
-  getAuthHeader: vi.fn(async () => "Bearer test-jwt"),
-  getPersistentID: vi.fn(() => "123e4567-e89b-12d3-a456-426614174000"),
-}));
-
-vi.mock("../../src/client/Api", () => ({
-  getApiBase: vi.fn(() => "https://api.test"),
-}));
+import type { ServerMessage } from "@openfront/shared/WireSchemas";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("src/client/ClientEnv", () => ({
   ClientEnv: {
@@ -20,13 +10,13 @@ vi.mock("src/client/ClientEnv", () => ({
   },
 }));
 
+import {
+  GameSpeedDownIntentEvent,
+  GameSpeedUpIntentEvent,
+  ReplaySpeedChangeEvent,
+} from "../../src/client/InputHandler";
 import { LocalServer } from "../../src/client/LocalServer";
-
-// jsdom doesn't provide CompressionStream; use Node's implementation.
-if (typeof globalThis.CompressionStream === "undefined") {
-  const streamWeb = await import("node:stream/web");
-  (globalThis as any).CompressionStream = streamWeb.CompressionStream;
-}
+import { ReplaySpeedMultiplier } from "../../src/client/utilities/ReplaySpeedMultiplier";
 
 const CLIENT_ID = "abCD1234";
 
@@ -59,130 +49,174 @@ function makeGameStartInfo(): GameStartInfo {
   } as GameStartInfo;
 }
 
-function makeServer(isReplay: boolean): LocalServer {
-  const server = new LocalServer(
-    {
-      gameStartInfo: makeGameStartInfo(),
-      playerName: "TestUser",
-      playerClanTag: null,
-    } as any,
-    isReplay,
-    new EventBus(),
-  );
-  server.updateCallback(
-    () => {},
-    () => {},
-  );
-  return server;
-}
+describe("LocalServer", () => {
+  let server: LocalServer;
+  let bus: EventBus;
+  let messages: ServerMessage[];
 
-const winnerMsg: ClientMessage = {
-  type: "winner",
-  winner: ["player", CLIENT_ID],
-  allPlayersStats: { [CLIENT_ID]: { attacks: [100n] } },
-};
-
-function archivedRecord(call: any) {
-  const body = call[1].body as ArrayBuffer;
-  return JSON.parse(gunzipSync(Buffer.from(body)).toString());
-}
-
-describe("LocalServer archiving", () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
-
-  beforeEach(() => {
-    fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-  });
+  function makeServer(): LocalServer {
+    bus = new EventBus();
+    messages = [];
+    const created = new LocalServer(
+      {
+        gameID: "gameID12",
+        playerName: "TestUser",
+        gameStartInfo: makeGameStartInfo(),
+      },
+      bus,
+    );
+    created.updateCallback(
+      () => {},
+      (msg: ServerMessage) => {
+        messages.push(msg);
+        // Ack immediately so the backlog gate never throttles pacing.
+        if (msg.type === "turn") created.turnComplete();
+      },
+    );
+    return created;
+  }
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    server?.endGame();
+    vi.useRealTimers();
   });
 
-  it("archives at win time, without keepalive, and not again at endGame", async () => {
-    const server = makeServer(false);
+  it("opens the game with a start message naming the local player", () => {
+    vi.useFakeTimers();
+    server = makeServer();
     server.start();
 
-    server.onMessage(winnerMsg);
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.test/archive_singleplayer_game");
-    expect(init.method).toBe("POST");
-    expect(init.keepalive).toBe(false);
-    expect(init.headers.Authorization).toBe("Bearer test-jwt");
-
-    const record = archivedRecord(fetchMock.mock.calls[0]);
-    expect(record.gitCommit).toBe("DEV");
-    expect(record.info.winner).toEqual(["player", CLIENT_ID]);
-    expect(record.info.players[0].clientID).toBe(CLIENT_ID);
-    // No server vote backs a singleplayer record's stats.
-    expect(record.info.statsAgreed).toBeUndefined();
-
-    // Exiting afterwards must not archive the same game twice.
-    server.endGame();
-    await new Promise((r) => setTimeout(r, 10));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(messages).toHaveLength(1);
+    const start = messages[0];
+    expect(start.type).toBe("start");
+    if (start.type === "start") {
+      expect(start.myClientID).toBe(CLIENT_ID);
+      expect(start.turns).toEqual([]);
+      expect(start.gameStartInfo.gameID).toBe("gameID12");
+    }
   });
 
-  it("retries at endGame with keepalive when the win-time upload failed", async () => {
-    fetchMock.mockResolvedValueOnce(new Response(null, { status: 500 }));
-    const server = makeServer(false);
+  it("refuses to start a game without a player", () => {
+    vi.useFakeTimers();
+    server = makeServer();
+    const info = makeGameStartInfo();
+    info.players = [];
+    (server as any).lobbyConfig.gameStartInfo = info;
+    expect(() => server.start()).toThrow("missing clientID");
+    server.endGame();
+  });
+
+  it("stamps the local player's clientID onto every intent in the next turn", () => {
+    vi.useFakeTimers();
+    server = makeServer();
     server.start();
 
-    server.onMessage(winnerMsg);
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    // Let the failed attempt settle so it is no longer in flight.
-    await new Promise((r) => setTimeout(r, 0));
+    server.onMessage({
+      type: "intent",
+      intent: { type: "spawn", tile: 7 },
+    });
+    vi.advanceTimersByTime(200);
 
-    server.endGame();
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-
-    const [, init] = fetchMock.mock.calls[1];
-    expect(init.keepalive).toBe(true);
-    expect(archivedRecord(fetchMock.mock.calls[1]).info.winner).toEqual([
-      "player",
-      CLIENT_ID,
-    ]);
-  });
-
-  it("does not start a second upload while one is in flight", async () => {
-    let resolveFetch!: (response: Response) => void;
-    fetchMock.mockImplementationOnce(
-      () => new Promise<Response>((r) => (resolveFetch = r)),
+    const turns = messages.filter((m) => m.type === "turn");
+    const withIntent = turns.find(
+      (m) => m.type === "turn" && m.turn.intents.length > 0,
     );
-    const server = makeServer(false);
-    server.start();
-
-    server.onMessage(winnerMsg);
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-
-    // Exit while the win-time upload is still pending.
-    server.endGame();
-    resolveFetch(new Response(null, { status: 200 }));
-    await new Promise((r) => setTimeout(r, 10));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(withIntent).toBeDefined();
+    if (withIntent?.type === "turn") {
+      expect(withIntent.turn.intents).toEqual([
+        { type: "spawn", tile: 7, clientID: CLIENT_ID },
+      ]);
+    }
   });
 
-  it("still archives at endGame when the game had no winner", async () => {
-    const server = makeServer(false);
+  it("resends the game start and every turn so far on rejoin", () => {
+    vi.useFakeTimers();
+    server = makeServer();
     server.start();
+    vi.advanceTimersByTime(500);
+    const sent = messages.filter((m) => m.type === "turn").length;
+    expect(sent).toBeGreaterThan(0);
 
-    server.endGame();
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    messages.length = 0;
+    server.onMessage({ type: "rejoin", gameID: "gameID12", lastTurn: 0 });
 
-    const [, init] = fetchMock.mock.calls[0];
-    expect(init.keepalive).toBe(true);
-    expect(archivedRecord(fetchMock.mock.calls[0]).info.winner).toBeUndefined();
+    expect(messages).toHaveLength(1);
+    const start = messages[0];
+    expect(start.type).toBe("start");
+    if (start.type === "start") {
+      expect(start.turns).toHaveLength(sent);
+    }
   });
 
-  it("never archives replays", async () => {
-    const server = makeServer(true);
+  it("stops handing out turns while paused and ignores other intents", () => {
+    vi.useFakeTimers();
+    server = makeServer();
     server.start();
 
-    server.onMessage(winnerMsg);
-    server.endGame();
-    await new Promise((r) => setTimeout(r, 10));
-    expect(fetchMock).not.toHaveBeenCalled();
+    server.onMessage({
+      type: "intent",
+      intent: { type: "toggle_pause", paused: true },
+    });
+    messages.length = 0;
+    server.onMessage({
+      type: "intent",
+      intent: { type: "spawn", tile: 3 },
+    });
+    vi.advanceTimersByTime(1000);
+    expect(messages.filter((m) => m.type === "turn")).toHaveLength(0);
+
+    server.onMessage({
+      type: "intent",
+      intent: { type: "toggle_pause", paused: false },
+    });
+    vi.advanceTimersByTime(300);
+    const resumed = messages.filter((m) => m.type === "turn");
+    expect(resumed.length).toBeGreaterThan(0);
+    // The spawn sent while paused was dropped.
+    for (const m of resumed) {
+      if (m.type === "turn") {
+        expect(m.turn.intents.some((i) => i.type === "spawn")).toBe(false);
+      }
+    }
+  });
+
+  describe("game speed", () => {
+    it("a ReplaySpeedChangeEvent stretches the turn interval", () => {
+      vi.useFakeTimers();
+      server = makeServer();
+      server.start();
+
+      vi.advanceTimersByTime(1000);
+      const atNormalSpeed = messages.filter((m) => m.type === "turn").length;
+      // 100ms interval at the default 1x multiplier: ~10 turns a second.
+      expect(atNormalSpeed).toBeGreaterThanOrEqual(4);
+
+      bus.emit(new ReplaySpeedChangeEvent(ReplaySpeedMultiplier.slow));
+      messages.length = 0;
+      vi.advanceTimersByTime(1000);
+      const slow = messages.filter((m) => m.type === "turn").length;
+
+      // The 2x interval multiplier must roughly halve the cadence.
+      expect(slow).toBeLessThan(atNormalSpeed);
+    });
+
+    it("speed up and down walk the preset ladder and announce each step", () => {
+      vi.useFakeTimers();
+      server = makeServer();
+      server.start();
+
+      const seen: ReplaySpeedMultiplier[] = [];
+      bus.on(ReplaySpeedChangeEvent, (e) => seen.push(e.replaySpeedMultiplier));
+
+      bus.emit(new GameSpeedUpIntentEvent());
+      bus.emit(new GameSpeedDownIntentEvent());
+      bus.emit(new GameSpeedDownIntentEvent());
+
+      expect(seen).toEqual([
+        ReplaySpeedMultiplier.fast,
+        ReplaySpeedMultiplier.normal,
+        ReplaySpeedMultiplier.slow,
+      ]);
+    });
   });
 });

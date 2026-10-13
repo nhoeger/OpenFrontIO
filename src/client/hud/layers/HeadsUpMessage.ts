@@ -1,8 +1,3 @@
-import {
-  GameMode,
-  GameType,
-  RankedType,
-} from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { LitElement, html } from "lit";
 import { customElement, state } from "lit/decorators.js";
@@ -10,18 +5,12 @@ import { Controller } from "../../Controller";
 import { translateText } from "../../Utils";
 import { GameView } from "../../view";
 
-const COLLUSION_WARNING_CLOSED_KEY = "hasClosedCollusionWarning";
-
 @customElement("heads-up-message")
 export class HeadsUpMessage extends LitElement implements Controller {
   public game: GameView;
 
   @state()
   private isVisible = false;
-
-  @state()
-  private hasClosedCollusionWarning =
-    localStorage.getItem(COLLUSION_WARNING_CLOSED_KEY) !== null;
 
   @state()
   private isPaused = false;
@@ -163,8 +152,7 @@ export class HeadsUpMessage extends LitElement implements Controller {
       this.game.isSpawnImmunityActive() &&
       ticksSinceSpawnEnd < showImmunityHudDuration;
 
-    const currentlyCatchingUp =
-      !this.game.config().isReplay() && this.game.isCatchingUp();
+    const currentlyCatchingUp = this.game.isCatchingUp();
 
     if (currentlyCatchingUp) {
       this.catchingUpTicks++;
@@ -202,11 +190,7 @@ export class HeadsUpMessage extends LitElement implements Controller {
       return translateText("heads_up_message.catching_up");
     }
     if (this.isPaused) {
-      if (this.game.config().gameConfig().gameType === GameType.Singleplayer) {
-        return translateText("heads_up_message.singleplayer_game_paused");
-      } else {
-        return translateText("heads_up_message.multiplayer_game_paused");
-      }
+      return translateText("heads_up_message.singleplayer_game_paused");
     }
     if (this.isImmunityActive) {
       return translateText("heads_up_message.pvp_immunity_active", {
@@ -216,24 +200,10 @@ export class HeadsUpMessage extends LitElement implements Controller {
     if (this.isOvertimeNotice) {
       return translateText("overtime.started");
     }
-    if (
-      this.game.config().isReplay() ||
-      this.game.config().isIntentionalSpectator()
-    ) {
-      return this.game.config().isRandomSpawn()
-        ? translateText("heads_up_message.random_spawn_spectator")
-        : translateText("heads_up_message.choose_spawn_spectator");
-    }
     return this.game.config().isRandomSpawn()
       ? translateText("heads_up_message.random_spawn")
       : translateText("heads_up_message.choose_spawn");
   }
-
-  private onCloseCollusionWarning = (): void => {
-    localStorage.setItem(COLLUSION_WARNING_CLOSED_KEY, "true");
-    this.hasClosedCollusionWarning = true;
-    this.requestUpdate();
-  };
 
   render() {
     return html`
@@ -295,34 +265,6 @@ export class HeadsUpMessage extends LitElement implements Controller {
                 @contextmenu=${(e: MouseEvent) => e.preventDefault()}
               >
                 ${this.getMessage()}
-              </div>
-            `
-          : null}
-        ${this.game?.inSpawnPhase() &&
-        !this.game.config().isReplay() &&
-        !this.game.config().isIntentionalSpectator() &&
-        this.game.config().gameConfig().rankedType !== RankedType.OneVOne &&
-        this.game.config().gameConfig().gameMode === GameMode.FFA &&
-        this.game.config().gameConfig().gameType === GameType.Public &&
-        !this.hasClosedCollusionWarning
-          ? html`
-              <div
-                class="fixed top-[25%] left-1/2 -translate-x-1/2 z-[799]
-                            inline-flex flex-col items-center justify-center min-h-8 lg:min-h-10
-                            w-fit max-w-[90vw]
-                            bg-amber-500/70 rounded-md lg:rounded-lg
-                            backdrop-blur-xs text-white text-md lg:text-xl px-3 lg:px-4 py-3
-                            text-center break-words"
-                style="word-wrap: break-word; hyphens: auto; pointer-events: auto;"
-                @contextmenu=${(e: MouseEvent) => e.preventDefault()}
-              >
-                <div>${translateText("heads_up_message.ffa_collusion")}</div>
-                <button
-                  class="mt-2 px-3 py-1 rounded bg-black/20 hover:bg-black/30 text-sm"
-                  @click=${this.onCloseCollusionWarning}
-                >
-                  ${translateText("heads_up_message.dont_show_again")}
-                </button>
               </div>
             `
           : null}

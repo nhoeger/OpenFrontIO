@@ -224,7 +224,7 @@ async function main(): Promise<void> {
     gameMap: opts.map,
     gameMapSize: GameMapSize.Normal,
     gameMode: GameMode.FFA,
-    gameType: GameType.Public,
+    gameType: GameType.Singleplayer,
     difficulty: Difficulty.Medium,
     nations: opts.nations,
     donateGold: false,
@@ -251,7 +251,7 @@ async function main(): Promise<void> {
   // Mirrors createGameRunner(), but assembled by hand so the execution
   // profiler can be attached before GameRunner.init() adds the initial
   // executions (nations, bots, spawn timer, win check).
-  const config = new EngineConfig(gameConfig, false);
+  const config = new EngineConfig(gameConfig);
   const mapLoader = new NodeGameMapLoader(
     path.join(PROJECT_ROOT, "resources/maps"),
   );

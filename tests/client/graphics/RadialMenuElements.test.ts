@@ -175,7 +175,6 @@ describe("RadialMenuElements", () => {
       emojiTable: {} as any,
       playerActionHandler: {} as any,
       playerPanel: {} as any,
-      chatIntegration: {} as any,
       eventBus: { emit: vi.fn() } as any,
       closeMenu: vi.fn(),
     };

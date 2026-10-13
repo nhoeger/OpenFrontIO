@@ -77,19 +77,11 @@ Using AI tools is fine — but you **MUST** understand the code you are submitti
 
 ### Running the Game
 
-- **Full Development Mode** (Client + Server):
+- **Development Mode**:
   ```bash
   npm run dev
   ```
-  This starts the dev server and the game server, and opens your browser.
-- **Client Only**:
-  ```bash
-  npm run start:client
-  ```
-- **Server Only**:
-  ```bash
-  npm run start:server-dev
-  ```
+  This starts the dev server and opens your browser. The game runs entirely in the browser, so there is no game server.
 
 ## Development Workflow
 

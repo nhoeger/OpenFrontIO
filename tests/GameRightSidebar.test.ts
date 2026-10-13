@@ -45,12 +45,9 @@ function createSidebar(overrides: Partial<TimerState> = {}) {
       // config read must exist even though these tests keep the mode off.
       overtimeConfig: () => ({ enabled: false, startMinutes: 30 }),
       gameConfig: () => ({
-        gameType: GameType.Public,
+        gameType: GameType.Singleplayer,
         maxTimerValue: state.maxTimerValue,
       }),
-      isReplay: () => false,
-      listed: false,
-      numSpawnPhaseTurns: () => 400,
     }),
     elapsedGameSeconds: () => state.elapsedSeconds,
     inSpawnPhase: () => state.inSpawnPhase,
@@ -163,7 +160,7 @@ describe("GameRightSidebar end timer warnings", () => {
     );
   });
 
-  it("does not use end-game warnings for the spawn countdown", async () => {
+  it("shows the full timer, without end-game warnings, during the spawn phase", async () => {
     const { sidebar, state } = createSidebar({
       inSpawnPhase: true,
       ticks: 100,
@@ -174,7 +171,7 @@ describe("GameRightSidebar end timer warnings", () => {
 
     expect(
       sidebar.querySelector("[data-game-timer]")?.textContent?.trim(),
-    ).toBe("00:30");
+    ).toBe("02:00");
     expect(sidebar.querySelector("[data-game-timer]")?.className).toBe("");
     expect(sidebar.querySelector("aside")?.className).not.toContain(
       "game-end-timer-sidebar-flash",

@@ -151,7 +151,7 @@ export function createGame(
     randomSpawn: false,
     ...configOverrides,
   };
-  const config = new TestConfig(gameConfig, false);
+  const config = new TestConfig(gameConfig);
 
   return createGameImpl(
     [],

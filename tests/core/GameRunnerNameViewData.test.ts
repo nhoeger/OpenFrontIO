@@ -4,25 +4,67 @@
  * they were at that tick once later ticks have run.
  */
 
-import { GameMapType } from "@openfront/engine-api/game/GameTypes";
+import {
+  Difficulty,
+  GameMapSize,
+  GameMapType,
+  GameMode,
+  GameType,
+} from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateViewData } from "@openfront/engine-api/game/GameUpdates";
+import { GameStartInfo, StampedIntent } from "@openfront/engine-api/Schemas";
+import { Game } from "@openfront/engine/game/Game";
 import { createGameRunner } from "@openfront/engine/GameRunner";
 import { loadMapFiles } from "@openfront/shared/GameMapLoader";
-import { toWireGameStartInfo } from "@openfront/shared/SharedUtil";
-import {
-  config,
-  human,
-  mapLoader,
-  spawnOnLand,
-} from "../client/replay/util/ArchiveGame";
+import path from "path";
+import { fileURLToPath } from "url";
+import { NodeGameMapLoader } from "../perf/fullgame/NodeGameMapLoader";
+
+const PROJECT_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
+const mapLoader = new NodeGameMapLoader(
+  path.join(PROJECT_ROOT, "resources/maps"),
+);
+
+/** A spawn intent for `clientID` on the first unowned land tile at/after `from`. */
+function spawnOnLand(
+  game: Game,
+  clientID: string,
+  from: number,
+): StampedIntent {
+  const map = game.map();
+  for (let ref = from; ref < map.width() * map.height(); ref++) {
+    if (map.isLand(ref) && !map.hasOwner(ref)) {
+      return { type: "spawn", clientID, tile: ref };
+    }
+  }
+  throw new Error("no free land tile");
+}
 
 test("an update's name placements don't change as later ticks run", async () => {
-  const start = toWireGameStartInfo({
+  const start: GameStartInfo = {
     gameID: "nameView1",
     lobbyCreatedAt: 1_700_000_000_000,
-    config: config({ gameMap: GameMapType.Onion, bots: 5 }),
-    players: [human(1)],
-  });
+    config: {
+      gameMap: GameMapType.Onion,
+      difficulty: Difficulty.Medium,
+      donateGold: false,
+      donateTroops: false,
+      gameType: GameType.Singleplayer,
+      gameMode: GameMode.FFA,
+      gameMapSize: GameMapSize.Normal,
+      nations: "default",
+      bots: 5,
+      infiniteGold: false,
+      infiniteTroops: false,
+      instantBuild: false,
+      randomSpawn: false,
+      disabledUnits: [],
+    },
+    players: [{ clientID: "client001", username: "Human 1", clanTag: null }],
+  };
   const held: {
     data: NonNullable<GameUpdateViewData["playerNameViewData"]>;
     atTick: string;

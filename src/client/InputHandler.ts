@@ -160,14 +160,6 @@ export class ShowEmojiMenuEvent implements GameEvent {
   ) {}
 }
 
-/** Toggles quick chat for the player at screen position (x, y). */
-export class ShowChatMenuEvent implements GameEvent {
-  constructor(
-    public readonly x: number,
-    public readonly y: number,
-  ) {}
-}
-
 /** Emitted by the emoji table whenever it opens or closes. */
 export class EmojiTableVisibleEvent implements GameEvent {
   constructor(public readonly visible: boolean) {}
@@ -454,18 +446,6 @@ export class InputHandler {
     this.addKeybindAndEvent(this.keybinds.targetPlayer, () => {
       this.eventBus.emit(new DoTargetPlayerEvent());
     });
-    // Shares R with reset graphics, which needs its modifier held, so quick
-    // chat only takes the key on its own.
-    this.addKeybindAndEvent(
-      this.keybinds.quickChat,
-      () => {
-        this.eventBus.emit(
-          new ShowChatMenuEvent(this.lastMouseX, this.lastMouseY),
-        );
-      },
-      (e: KeyboardEvent) =>
-        !e.altKey && !e.ctrlKey && !e.metaKey && !this.resetGfxModifierHeld(e),
-    );
     this.addKeybindAndEvent(
       this.keybinds.pauseGame,
       () => {

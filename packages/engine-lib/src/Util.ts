@@ -258,10 +258,3 @@ export function sigmoid(
 ): number {
   return 1 / (1 + exp(-decayRate * (value - midpoint)));
 }
-
-// Longest label a featured lobby may show in the browser. Long enough for
-// "Europe — Official OpenFront Masters Scrims", short enough that one row
-// cannot crowd out the rest of the list. Lives here rather than in Schemas so
-// the sanitiser that enforces it has no import back into Schemas — that edge
-// would close a require cycle.
-export const LOBBY_LABEL_MAX = 48;

@@ -1,7 +1,6 @@
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { EventBus } from "@openfront/shared/EventBus";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchCosmetics } from "../../../../src/client/Cosmetics";
 import "../../../../src/client/hud/layers/WinModal";
 import type { WinModal } from "../../../../src/client/hud/layers/WinModal";
 import { SendWinnerEvent } from "../../../../src/client/Transport";
@@ -12,22 +11,7 @@ vi.mock("../../../../src/client/Utils", () => ({
   getTranslatedPlayerTeamLabel: vi.fn(
     (team: string | null) => (team === "Red" ? "Rood" : (team ?? "")), // "Rood" is Dutch for "Red"
   ),
-  getGamesPlayed: vi.fn(() => 10),
-  isInIframe: vi.fn(() => false),
   homeHref: vi.fn(() => "/"),
-  TUTORIAL_VIDEO_URL: "https://example.com/tutorial",
-}));
-
-vi.mock("../../../../src/client/Api", () => ({
-  getUserMe: vi.fn(async () => null),
-}));
-
-vi.mock("../../../../src/client/Cosmetics", async (importOriginal) => ({
-  ...(await importOriginal<
-    typeof import("../../../../src/client/Cosmetics")
-  >()),
-  fetchCosmetics: vi.fn(async () => null),
-  resolveCosmetics: vi.fn(() => []),
 }));
 
 vi.mock("../../../../src/client/CrazyGamesSDK", () => ({
@@ -67,7 +51,7 @@ function makeGame(opts: {
     inSpawnPhase: () => false,
     updatesSinceLastTick: () => ({ [GameUpdateType.Win]: [winUpdate] }),
     playerByClientID: () => opts.winnerPlayer,
-    config: () => ({ gameConfig: () => ({ rankedType: undefined }) }),
+    config: () => ({ gameConfig: () => ({}) }),
   } as unknown as GameView;
 }
 
@@ -164,18 +148,7 @@ describe("WinModal tick win handling", () => {
     await vi.waitFor(() => expect(modal!.isVisible).toBe(true));
   });
 
-  it("shows the buttons as soon as show() runs, before the cosmetics fetch settles", async () => {
-    // A visible modal activates steam-wishlist, which observes its own size;
-    // jsdom has no ResizeObserver.
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-    vi.mocked(fetchCosmetics).mockReturnValueOnce(new Promise(() => {}));
+  it("shows the buttons as soon as show() runs", async () => {
     setup(makeGame({ winner: ["team", "Blue"], myTeam: "Blue" }));
     document.body.appendChild(modal!);
 
@@ -189,15 +162,6 @@ describe("WinModal tick win handling", () => {
   });
 
   it("puts leaving on the left and staying on the right, and staying closes the modal", async () => {
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-    vi.mocked(fetchCosmetics).mockReturnValueOnce(new Promise(() => {}));
     setup(makeGame({ winner: ["team", "Blue"], myTeam: "Blue" }));
     document.body.appendChild(modal!);
     void modal!.show();

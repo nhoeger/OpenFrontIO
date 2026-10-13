@@ -43,7 +43,6 @@ describe("SinglePlayerModal start", () => {
     await modal.startGame();
 
     expect(events).toHaveLength(1);
-    expect(events[0].source).toBe("singleplayer");
     const config = events[0].gameStartInfo.config;
     expect(config.playerTeams).toBe(4);
     expect(config.disabledUnits).toEqual([UnitType.Warship]);

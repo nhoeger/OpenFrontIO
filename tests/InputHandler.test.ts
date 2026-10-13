@@ -16,7 +16,6 @@ import {
   MouseOverEvent,
   MouseUpEvent,
   RefreshGraphicsEvent,
-  ShowChatMenuEvent,
   ShowEmojiMenuEvent,
   TouchLongPressStartEvent,
   UnitSelectionEvent,
@@ -1398,7 +1397,7 @@ describe("InputHandler AutoUpgrade", () => {
     });
   });
 
-  describe("Quick chat keybind", () => {
+  describe("Reset graphics keybind", () => {
     beforeEach(() => {
       inputHandler.destroy();
       inputHandler = new InputHandler(
@@ -1415,49 +1414,24 @@ describe("InputHandler AutoUpgrade", () => {
       inputHandler.initialize();
     });
 
-    test("R opens quick chat at the last mouse position", () => {
-      const chats: ShowChatMenuEvent[] = [];
+    test("Alt+R resets graphics", () => {
       const refreshes: RefreshGraphicsEvent[] = [];
-      eventBus.on(ShowChatMenuEvent, (e) => chats.push(e));
-      eventBus.on(RefreshGraphicsEvent, (e) => refreshes.push(e));
-
-      window.dispatchEvent(
-        new MouseEvent("mousemove", { clientX: 50, clientY: 60 }),
-      );
-      window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyR" }));
-
-      expect(chats).toHaveLength(1);
-      expect(chats[0].x).toBe(50);
-      expect(chats[0].y).toBe(60);
-      expect(refreshes).toHaveLength(0);
-    });
-
-    test("Alt+R resets graphics without opening quick chat", () => {
-      const chats: ShowChatMenuEvent[] = [];
-      const refreshes: RefreshGraphicsEvent[] = [];
-      eventBus.on(ShowChatMenuEvent, (e) => chats.push(e));
       eventBus.on(RefreshGraphicsEvent, (e) => refreshes.push(e));
 
       window.dispatchEvent(
         new KeyboardEvent("keyup", { code: "KeyR", altKey: true }),
       );
 
-      expect(chats).toHaveLength(0);
       expect(refreshes).toHaveLength(1);
     });
 
-    test("Ctrl+R and Cmd+R don't open quick chat", () => {
-      const chats: ShowChatMenuEvent[] = [];
-      eventBus.on(ShowChatMenuEvent, (e) => chats.push(e));
+    test("R on its own does not reset graphics", () => {
+      const refreshes: RefreshGraphicsEvent[] = [];
+      eventBus.on(RefreshGraphicsEvent, (e) => refreshes.push(e));
 
-      window.dispatchEvent(
-        new KeyboardEvent("keyup", { code: "KeyR", ctrlKey: true }),
-      );
-      window.dispatchEvent(
-        new KeyboardEvent("keyup", { code: "KeyR", metaKey: true }),
-      );
+      window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyR" }));
 
-      expect(chats).toHaveLength(0);
+      expect(refreshes).toHaveLength(0);
     });
   });
 

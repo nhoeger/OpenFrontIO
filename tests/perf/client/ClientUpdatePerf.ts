@@ -310,7 +310,7 @@ async function main(): Promise<void> {
     gameMap: opts.map,
     gameMapSize: GameMapSize.Normal,
     gameMode: GameMode.FFA,
-    gameType: GameType.Public,
+    gameType: GameType.Singleplayer,
     difficulty: Difficulty.Medium,
     nations: opts.nations,
     donateGold: false,
@@ -356,7 +356,7 @@ async function main(): Promise<void> {
 
   // Client side: own Config + own map load, mirroring createClientGame (the
   // real client and worker each load their own copy of the map).
-  const clientConfig = new Config(gameConfig, false);
+  const clientConfig = new Config(gameConfig);
   const clientMapData = await loadTerrainMap(
     await loadMapFiles(mapLoader, gameConfig.gameMap, gameConfig.gameMapSize),
   );

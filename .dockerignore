@@ -14,5 +14,4 @@ helm-charts
 .idea
 coverage*
 tests/
-scripts/replay/
 scripts/split-packages/

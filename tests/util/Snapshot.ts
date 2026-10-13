@@ -60,7 +60,7 @@ export async function restoreTestGame(
 ): Promise<Game> {
   const maps = await loadTestMaps(mapName);
   return restoreGame(bytes, {
-    config: (gc) => new ConfigClass(gc, false),
+    config: (gc) => new ConfigClass(gc),
     ...maps,
   });
 }

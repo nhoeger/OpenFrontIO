@@ -197,8 +197,15 @@ describe.each(VARIANTS)("full game snapshots: %s", (_, overrides) => {
       // Runs during the spawn phase and finishes inside init, so it is never
       // alive at a tick boundary. BasicExecutions.test.ts covers it directly.
       const neverStored = new Set(["Pause"]);
+      // Nothing creates these any more (they served online games), but a
+      // snapshot written by an earlier build can still hold them, so their
+      // registry entries stay.
+      const retired = new Set(["MarkDisconnected", "QuickChat", "SpawnTimer"]);
       const missing = EXECUTION_SNAPSHOT_TYPES.map((t) => t.name).filter(
-        (name) => !reference.execTypes.has(name) && !neverStored.has(name),
+        (name) =>
+          !reference.execTypes.has(name) &&
+          !neverStored.has(name) &&
+          !retired.has(name),
       );
       expect(missing).toEqual([]);
     },

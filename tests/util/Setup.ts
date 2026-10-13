@@ -72,7 +72,7 @@ export async function setup(
     randomSpawn: false,
     ..._gameConfig,
   };
-  const config = new ConfigClass(gameConfig, false);
+  const config = new ConfigClass(gameConfig);
 
   const game = createGame(humans, nations, gameMap, miniGameMap, config);
   if (autoEndSpawnPhase) game.endSpawnPhase();

@@ -69,9 +69,6 @@ const makeParams = (opts?: Partial<MenuElementParams>): MenuElementParams => {
     playerPanel: {
       show: vi.fn(),
     } as any,
-    chatIntegration: {
-      createQuickChatMenu: vi.fn(() => []),
-    } as any,
     eventBus: {} as any,
     closeMenu: vi.fn(),
   };

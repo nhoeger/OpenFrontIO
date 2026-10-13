@@ -3,7 +3,7 @@ import { GameConfig } from "@openfront/engine-api/Schemas";
 import { EngineConfig } from "@openfront/engine/configuration/EngineConfig";
 import { describe, expect, it } from "vitest";
 
-const cfg = new EngineConfig({} as unknown as GameConfig, false);
+const cfg = new EngineConfig({} as unknown as GameConfig);
 
 describe("nukeSpeed", () => {
   it("maps each nuke type to its speed", () => {

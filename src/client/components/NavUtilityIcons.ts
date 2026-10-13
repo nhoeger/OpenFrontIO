@@ -1,25 +1,20 @@
 import { html, LitElement, TemplateResult } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import { desktopQuit, requestDesktopQuit } from "../DesktopShell";
-import { NavNotificationsController } from "./NavNotificationsController";
 
 /**
  * The news bell, help "?", settings cogwheel and (on the desktop shell) a
- * power button as icon buttons, with the notification dots the first two carry.
+ * power button as icon buttons.
  *
  * Shared by the desktop nav bar and the mobile top bar so both read as the same
- * cluster next to the profile control — they're utility affordances rather than
- * page links, which is why they've left the nav item lists. The cogwheel sits
- * last among the page links, immediately left of the profile control, and is a
- * plain page link with no auth dependency: it looks and behaves the same
- * signed in or out. The power button, when it renders, sits right after it.
+ * cluster — they're utility affordances rather than page links, which is why
+ * they've left the nav item lists. The power button, when it renders, sits
+ * right after the cogwheel.
  */
 @customElement("nav-utility-icons")
 export class NavUtilityIcons extends LitElement {
   /** Mobile trims the hit area to fit the top bar beside the logo. */
   @property({ type: String }) size: "desktop" | "mobile" = "desktop";
-
-  private _notifications = new NavNotificationsController(this);
 
   createRenderRoot() {
     return this;
@@ -100,15 +95,6 @@ export class NavUtilityIcons extends LitElement {
     `;
   }
 
-  private renderDot(color: string): TemplateResult {
-    return html`
-      <span
-        class="absolute top-0 right-0 w-2 h-2 ${color} rounded-full animate-ping"
-      ></span>
-      <span class="absolute top-0 right-0 w-2 h-2 ${color} rounded-full"></span>
-    `;
-  }
-
   render(): TemplateResult {
     const currentPage = window.currentPageId;
     return html`
@@ -121,7 +107,6 @@ export class NavUtilityIcons extends LitElement {
             data-page="page-news"
             data-i18n-aria-label="main.news"
             data-i18n-title="main.news"
-            @click=${this._notifications.onNewsClick}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -138,9 +123,6 @@ export class NavUtilityIcons extends LitElement {
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>
           </button>
-          ${this._notifications.showNewsDot()
-            ? this.renderDot("bg-red-500")
-            : ""}
         </div>
         <div class="relative">
           <button
@@ -150,7 +132,6 @@ export class NavUtilityIcons extends LitElement {
             data-page="page-help"
             data-i18n-aria-label="main.help"
             data-i18n-title="main.help"
-            @click=${this._notifications.onHelpClick}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -168,9 +149,6 @@ export class NavUtilityIcons extends LitElement {
               <line x1="12" y1="17.5" x2="12.01" y2="17.5" />
             </svg>
           </button>
-          ${this._notifications.showHelpDot()
-            ? this.renderDot("bg-yellow-400")
-            : ""}
         </div>
         <button
           class="${this.buttonClass()} ${currentPage === "page-settings"

@@ -79,7 +79,7 @@ export function scriptedGameStart(
       gameMap: GameMapType.World,
       gameMapSize: GameMapSize.Compact,
       gameMode: GameMode.FFA,
-      gameType: GameType.Private,
+      gameType: GameType.Singleplayer,
       difficulty: Difficulty.Hard,
       nations: 12,
       bots: 40,
@@ -224,12 +224,6 @@ function queuedIntent(game: Game, p: Player, tick: number): Intent | null {
     { type: "upgrade_structure", unit: UnitType.City, unitId: 1 },
     { type: "move_warship", unitIds: [1], tile: 0 },
     { type: "delete_unit", unitId: 1 },
-    {
-      type: "quick_chat",
-      recipient: other.id(),
-      quickChatKey: "greet.hello",
-    },
-    { type: "mark_disconnected", isDisconnected: false },
     { type: "toggle_pause", paused: false },
   ];
   return queued[(tick - 20) / 2] ?? null;
@@ -409,13 +403,11 @@ function playIntent(game: Game, p: Player, rand: PseudoRandom): Intent | null {
       };
     case 16:
       if (other === null) return null;
+      // (Once also chose a quick chat; the draw stays so the script's random
+      // sequence is unchanged.)
       return rand.chance(2)
         ? { type: "targetPlayer", target: other.id() }
-        : {
-            type: "quick_chat",
-            recipient: other.id(),
-            quickChatKey: "greet.hello",
-          };
+        : null;
     case 17: {
       const attack = pick(rand, p.outgoingAttacks());
       if (attack === null) return null;
@@ -439,11 +431,6 @@ function playIntent(game: Game, p: Player, rand: PseudoRandom): Intent | null {
       if (s === null || !rand.chance(4)) return null;
       return { type: "delete_unit", unitId: s.id() };
     }
-    case 21:
-      return {
-        type: "mark_disconnected",
-        isDisconnected: !p.isDisconnected() && rand.chance(3),
-      };
   }
   return null;
 }

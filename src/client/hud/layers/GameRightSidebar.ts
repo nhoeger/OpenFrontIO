@@ -1,16 +1,13 @@
-import { GameType } from "@openfront/engine-api/game/GameTypes";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
 import { html, LitElement } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { createNextLobby } from "../../Api";
-import { ClientEnv } from "../../ClientEnv";
 import "../../components/DoomsdayClockPanel";
 import "../../components/OvertimePanel";
 import { Controller } from "../../Controller";
 import { crazyGamesSDK } from "../../CrazyGamesSDK";
 import { isDesktopShell } from "../../DesktopShell";
-import { showInGameAlert, showInGameConfirm } from "../../InGameModal";
+import { showInGameConfirm } from "../../InGameModal";
 import { TogglePauseIntentEvent } from "../../InputHandler";
 import { PauseGameIntentEvent, SendWinnerEvent } from "../../Transport";
 import { homeHref, showToast, translateText } from "../../Utils";
@@ -23,7 +20,6 @@ const exitIcon = assetUrl("images/ExitIconWhite.svg");
 const FastForwardIconSolid = assetUrl("images/FastForwardIconSolidWhite.svg");
 const pauseIcon = assetUrl("images/PauseIconWhite.svg");
 const playIcon = assetUrl("images/PlayIconWhite.svg");
-const newLobbyIcon = assetUrl("images/ReplayRegularIconWhite.svg");
 const settingsIcon = assetUrl("images/SettingIconWhite.svg");
 const fullscreenIcon = assetUrl("images/FullscreenIconWhite.svg");
 const exitFullscreenIcon = assetUrl("images/ExitFullscreenIconWhite.svg");
@@ -37,9 +33,6 @@ const ONE_MINUTE_WARNING_DURATION_MS = 4_000;
 export class GameRightSidebar extends LitElement implements Controller {
   public game: GameView;
   public eventBus: EventBus;
-
-  @state()
-  private _isSinglePlayer: boolean = false;
 
   @state()
   private _isReplayVisible: boolean = false;
@@ -62,12 +55,7 @@ export class GameRightSidebar extends LitElement implements Controller {
   private readonly hideFullscreenButton =
     crazyGamesSDK.isOnCrazyGames() || isDesktopShell();
   private hasWinner = false;
-  private isLobbyCreator = false;
-  private isPrivateLobby = false;
   private hasShownOneMinuteWarning = false;
-  // Guards the in-game "New lobby" button so a double click doesn't fire twice
-  // before we navigate to the successor lobby.
-  private newLobbyRequested = false;
   private spawnBarVisible = false;
   private immunityBarVisible = false;
 
@@ -82,11 +70,6 @@ export class GameRightSidebar extends LitElement implements Controller {
   }
 
   init() {
-    this._isSinglePlayer =
-      this.game?.config()?.gameConfig()?.gameType === GameType.Singleplayer ||
-      this.game.config().isReplay();
-    this.isPrivateLobby =
-      this.game?.config()?.gameConfig()?.gameType === GameType.Private;
     this._isVisible = true;
     this.hasShownOneMinuteWarning = false;
 
@@ -105,14 +88,7 @@ export class GameRightSidebar extends LitElement implements Controller {
     });
 
     this.eventBus.on(TogglePauseIntentEvent, () => {
-      const isReplayOrSingleplayer =
-        this._isSinglePlayer || this.game?.config()?.isReplay();
-      if (
-        isReplayOrSingleplayer ||
-        (this.isLobbyCreator && !this.game.config().listed)
-      ) {
-        this.onPauseButtonClick();
-      }
+      this.onPauseButtonClick();
     });
 
     this.requestUpdate();
@@ -139,28 +115,14 @@ export class GameRightSidebar extends LitElement implements Controller {
 
   tick() {
     // Timer logic
-    // Check if the player is the lobby creator
-    if (!this.isLobbyCreator && this.game.myPlayer()?.isLobbyCreator()) {
-      this.isLobbyCreator = true;
-      this.requestUpdate();
-    }
-
     if (this.game.inSpawnPhase()) {
-      // Singleplayer has no spawn timer (SpawnTimerExecution isn't added), so
-      // the spawn phase doesn't count down — keep the old static display.
-      if (this.game.config().gameConfig().gameType === GameType.Singleplayer) {
-        const maxTimerValue = this.game.config().gameConfig().maxTimerValue;
-        this.timer =
-          maxTimerValue !== null && maxTimerValue !== undefined
-            ? maxTimerValue * 60
-            : 0;
-        return;
-      }
-      const spawnPhaseDurationTicks = this.game.config().numSpawnPhaseTurns();
-      const currentTicks = this.game.ticks();
-      const remainingTicks = spawnPhaseDurationTicks - currentTicks;
-      const remainingSeconds = Math.ceil(remainingTicks / 10);
-      this.timer = Math.max(0, remainingSeconds);
+      // There is no spawn timer (SpawnTimerExecution isn't added), so the
+      // spawn phase doesn't count down — keep a static display.
+      const maxTimerValue = this.game.config().gameConfig().maxTimerValue;
+      this.timer =
+        maxTimerValue !== null && maxTimerValue !== undefined
+          ? maxTimerValue * 60
+          : 0;
       return;
     }
 
@@ -224,9 +186,7 @@ export class GameRightSidebar extends LitElement implements Controller {
 
   private toggleReplayPanel(): void {
     this._isReplayVisible = !this._isReplayVisible;
-    this.eventBus.emit(
-      new ShowReplayPanelEvent(this._isReplayVisible, this._isSinglePlayer),
-    );
+    this.eventBus.emit(new ShowReplayPanelEvent(this._isReplayVisible, true));
   }
 
   private onPauseButtonClick() {
@@ -237,34 +197,6 @@ export class GameRightSidebar extends LitElement implements Controller {
       crazyGamesSDK.gameplayStart();
     }
     this.eventBus.emit(new PauseGameIntentEvent(this.isPaused));
-  }
-
-  private async onNewLobbyButtonClick() {
-    if (this.newLobbyRequested) return;
-    // Confirm so a stray click next to pause/exit doesn't yank everyone into a
-    // new lobby mid-game.
-    const isConfirmed = await showInGameConfirm(
-      translateText("new_lobby_prompt.confirm"),
-      { variant: "warning" },
-    );
-    if (!isConfirmed) return;
-    if (this.newLobbyRequested) return; // clicked again while confirming
-    this.newLobbyRequested = true;
-    this.requestUpdate();
-    try {
-      // The worker mints the successor lobby and has the current game
-      // broadcast its id, so everyone else gets the NewLobbyPrompt. We (the
-      // host) navigate straight to the new host view from the response.
-      const lobby = await createNextLobby(this.game.gameID());
-      const id = lobby.gameID;
-      // ?host routes the creator back into the host view on load.
-      window.location.href = `${window.location.origin}${ClientEnv.gamePath(id)}?host`;
-    } catch (error) {
-      console.error("Failed to create successor lobby", error);
-      this.newLobbyRequested = false;
-      this.requestUpdate();
-      void showInGameAlert(translateText("new_lobby_prompt.failed"));
-    }
   }
 
   private async onExitButtonClick() {
@@ -282,9 +214,7 @@ export class GameRightSidebar extends LitElement implements Controller {
   }
 
   private onSettingsButtonClick() {
-    this.eventBus.emit(
-      new ShowSettingsModalEvent(true, this._isSinglePlayer, this.isPaused),
-    );
+    this.eventBus.emit(new ShowSettingsModalEvent(true, true, this.isPaused));
   }
 
   private onFullscreenButtonClick() {
@@ -413,58 +343,18 @@ export class GameRightSidebar extends LitElement implements Controller {
   }
 
   maybeRenderReplayButtons() {
-    const isReplayOrSingleplayer =
-      this._isSinglePlayer || this.game?.config()?.isReplay();
-    const showPauseButton =
-      isReplayOrSingleplayer ||
-      (this.isLobbyCreator && !this.game.config().listed);
-    // The host of a private lobby can start a fresh lobby at any time, without
-    // waiting to die or for the game to end.
-    const showNewLobbyButton = this.isLobbyCreator && this.isPrivateLobby;
-
     return html`
-      ${isReplayOrSingleplayer
-        ? html`
-            <div class="cursor-pointer" @click=${this.toggleReplayPanel}>
-              <img
-                src=${FastForwardIconSolid}
-                alt="replay"
-                width="20"
-                height="20"
-              />
-            </div>
-          `
-        : ""}
-      ${showPauseButton
-        ? html`
-            <div class="cursor-pointer" @click=${this.onPauseButtonClick}>
-              <img
-                src=${this.isPaused ? playIcon : pauseIcon}
-                alt="play/pause"
-                width="20"
-                height="20"
-              />
-            </div>
-          `
-        : ""}
-      ${showNewLobbyButton
-        ? html`
-            <div
-              class="cursor-pointer ${this.newLobbyRequested
-                ? "opacity-50 pointer-events-none"
-                : ""}"
-              @click=${this.onNewLobbyButtonClick}
-              title=${translateText("win_modal.new_lobby")}
-            >
-              <img
-                src=${newLobbyIcon}
-                alt=${translateText("win_modal.new_lobby")}
-                width="20"
-                height="20"
-              />
-            </div>
-          `
-        : ""}
+      <div class="cursor-pointer" @click=${this.toggleReplayPanel}>
+        <img src=${FastForwardIconSolid} alt="replay" width="20" height="20" />
+      </div>
+      <div class="cursor-pointer" @click=${this.onPauseButtonClick}>
+        <img
+          src=${this.isPaused ? playIcon : pauseIcon}
+          alt="play/pause"
+          width="20"
+          height="20"
+        />
+      </div>
     `;
   }
 }

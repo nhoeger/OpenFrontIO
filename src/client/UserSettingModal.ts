@@ -32,7 +32,6 @@ import { Platform } from "./Platform";
 import type { AudioControls } from "./sound/CuePlayer";
 import { audioControls, playCue } from "./sound/CuePlayer";
 import type { CueCategory } from "./sound/Sounds";
-import { canHandOffToSteam } from "./SteamHandoff";
 import type { UIState } from "./UIState";
 import {
   AudioCategory,
@@ -414,53 +413,6 @@ export class UserSettingModal extends BaseModal {
     console.log(
       "🙈 Anonymous Names:",
       this.userSettings.anonymousNames() ? "ON" : "OFF",
-    );
-  }
-
-  private toggleLobbyIdVisibility() {
-    this.userSettings.toggleLobbyIdVisibility();
-    console.log(
-      "👁️ Hidden Lobby IDs:",
-      !this.userSettings.lobbyIdVisibility() ? "ON" : "OFF",
-    );
-  }
-
-  private toggleLobbyStartAlerts(e: Event) {
-    const enabled = (e.target as HTMLInputElement).checked;
-    this.userSettings.setLobbyStartAlerts(enabled);
-
-    // A permission prompt must originate from a user gesture. Persist the
-    // choice regardless of the result: desktop notifications are optional,
-    // and the lobby-start chime still works when permission is denied.
-    if (
-      enabled &&
-      typeof Notification !== "undefined" &&
-      Notification.permission === "default"
-    ) {
-      try {
-        void Notification.requestPermission().catch((error) => {
-          console.warn(
-            "Failed to request game-start notification permission",
-            error,
-          );
-        });
-      } catch (error) {
-        console.warn(
-          "Failed to request game-start notification permission",
-          error,
-        );
-      }
-    }
-    this.requestUpdate();
-  }
-
-  private toggleReplayViewer(e: Event) {
-    this.userSettings.setReplayViewer((e.target as HTMLInputElement).checked);
-  }
-
-  private toggleSteamLobbyLinks() {
-    this.userSettings.setSteamLobbyLinks(
-      this.userSettings.steamLobbyLinks() === "steam" ? "browser" : "steam",
     );
   }
 
@@ -1563,16 +1515,6 @@ export class UserSettingModal extends BaseModal {
         @change=${this.handleKeybindChange}
       ></setting-keybind>
 
-      <setting-keybind
-        action="quickChat"
-        label=${translateText("user_setting.quick_chat")}
-        description=${translateText("user_setting.quick_chat_desc")}
-        defaultKey=${this.defaultKeybinds.quickChat}
-        .value=${this.getKeyValue("quickChat")}
-        .display=${this.getKeyChar("quickChat")}
-        @change=${this.handleKeybindChange}
-      ></setting-keybind>
-
       <h2
         class="text-blue-200 text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
       >
@@ -1833,45 +1775,6 @@ export class UserSettingModal extends BaseModal {
         .checked=${this.userSettings.anonymousNames()}
         @change=${this.toggleAnonymousNames}
       ></setting-toggle>
-
-      <!-- 👁️ Hidden Lobby IDs -->
-      <setting-toggle
-        label="${translateText("user_setting.lobby_id_visibility_label")}"
-        description="${translateText("user_setting.lobby_id_visibility_desc")}"
-        id="lobby-id-visibility-toggle"
-        .checked=${!this.userSettings.lobbyIdVisibility()}
-        @change=${this.toggleLobbyIdVisibility}
-      ></setting-toggle>
-
-      <!-- 🔔 Lobby start alerts -->
-      <setting-toggle
-        label="${translateText("user_setting.lobby_start_alerts_label")}"
-        description="${translateText("user_setting.lobby_start_alerts_desc")}"
-        id="lobby-start-alerts-toggle"
-        .checked=${this.userSettings.lobbyStartAlerts()}
-        @change=${this.toggleLobbyStartAlerts}
-      ></setting-toggle>
-
-      <!-- 🎬 New replay viewer (opt-in while it's rolled out) -->
-      <setting-toggle
-        label="${translateText("user_setting.replay_viewer_label")}"
-        description="${translateText("user_setting.replay_viewer_desc")}"
-        id="replay-viewer-toggle"
-        .checked=${this.userSettings.replayViewer()}
-        @change=${this.toggleReplayViewer}
-      ></setting-toggle>
-
-      ${canHandOffToSteam()
-        ? html`<setting-toggle
-            label="${translateText("user_setting.steam_lobby_links_label")}"
-            description="${translateText(
-              "user_setting.steam_lobby_links_desc",
-            )}"
-            id="steam-lobby-links-toggle"
-            .checked=${this.userSettings.steamLobbyLinks() === "steam"}
-            @change=${this.toggleSteamLobbyLinks}
-          ></setting-toggle>`
-        : null}
 
       <!-- 🔍 Go to player -->
       <setting-toggle

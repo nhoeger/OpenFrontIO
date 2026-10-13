@@ -141,11 +141,7 @@ export class TutorialPanel extends LitElement implements Controller {
     if (!this.active) return;
 
     const player = this.game.myPlayer();
-    if (
-      this.game.config().isReplay() ||
-      player === null ||
-      (player.hasSpawned() && !player.isAlive())
-    ) {
+    if (player === null || (player.hasSpawned() && !player.isAlive())) {
       this.setActive(false);
       return;
     }

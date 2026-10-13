@@ -7,8 +7,8 @@ import { describe, expect, it } from "vitest";
 describe("EngineConfig.unitInfo", () => {
   for (const instantBuild of [false, true]) {
     const gameConfig = { instantBuild } as unknown as GameConfig;
-    const shared = new Config(gameConfig, false);
-    const engine = new EngineConfig(gameConfig, false);
+    const shared = new Config(gameConfig);
+    const engine = new EngineConfig(gameConfig);
 
     it(`adds a cost to the shared unit stats (instantBuild=${instantBuild})`, () => {
       for (const type of Object.values(UnitType)) {
@@ -20,7 +20,7 @@ describe("EngineConfig.unitInfo", () => {
   }
 
   it("caches per unit type", () => {
-    const engine = new EngineConfig({} as unknown as GameConfig, false);
+    const engine = new EngineConfig({} as unknown as GameConfig);
     expect(engine.unitInfo(UnitType.City)).toBe(engine.unitInfo(UnitType.City));
   });
 });

@@ -1,5 +1,4 @@
 import { zb } from "@openfront/zbin";
-import quickChatData from "resources/QuickChat.json";
 import { z } from "zod";
 import {
   AllPlayers,
@@ -12,7 +11,6 @@ import {
   HumansVsNations,
   MAX_UPGRADE_AMOUNT,
   Quads,
-  RankedType,
   Trios,
   UnitType,
 } from "./game/GameTypes";
@@ -37,16 +35,11 @@ export type Intent =
   | DonateTroopsIntent
   | BuildUnitIntent
   | EmbargoIntent
-  | QuickChatIntent
   | MoveWarshipIntent
-  | MarkDisconnectedIntent
   | EmbargoAllIntent
   | UpgradeStructureIntent
   | DeleteUnitIntent
-  | KickPlayerIntent
-  | TogglePauseIntent
-  | UpdateGameConfigIntent
-  | ToggleGameStartTimer;
+  | TogglePauseIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -67,22 +60,11 @@ export type UpgradeStructureIntent = z.infer<
   typeof UpgradeStructureIntentSchema
 >;
 export type MoveWarshipIntent = z.infer<typeof MoveWarshipIntentSchema>;
-export type QuickChatIntent = z.infer<typeof QuickChatIntentSchema>;
-export type MarkDisconnectedIntent = z.infer<
-  typeof MarkDisconnectedIntentSchema
->;
 export type AllianceExtensionIntent = z.infer<
   typeof AllianceExtensionIntentSchema
 >;
 export type DeleteUnitIntent = z.infer<typeof DeleteUnitIntentSchema>;
-export type KickPlayerIntent = z.infer<typeof KickPlayerIntentSchema>;
 export type TogglePauseIntent = z.infer<typeof TogglePauseIntentSchema>;
-export type UpdateGameConfigIntent = z.infer<
-  typeof UpdateGameConfigIntentSchema
->;
-export type ToggleGameStartTimer = z.infer<
-  typeof ToggleGameStartTimerIntentSchema
->;
 
 export type Turn = z.infer<typeof TurnSchema>;
 export type GameConfig = z.infer<typeof GameConfigSchema>;
@@ -93,17 +75,7 @@ export type Player = z.infer<typeof PlayerSchema>;
 export type GameStartInfo = z.infer<typeof GameStartInfoSchema>;
 
 // Deliberately looser than MAX_USERNAME_LENGTH, which caps what the form will
-// accept at 20. This schema also reads data at rest: it backs PlayerSchema,
-// so every archived GameRecord embeds names written under the rules of its
-// era. Lowering the bound doesn't rewrite those records — it makes them
-// unparseable, which dead-ends replay links (JoinLobbyModal parses before the
-// gitCommit check, so a failure never reaches the versioned-shell fallback)
-// and share previews (GamePreviewBuilder). Widen freely; never narrow.
-//
-// The charset accepts everything AccountUsernameSchema can produce, hyphens
-// included, so a verified account name is always representable on the wire —
-// verified play skips free-form validation, so an unrepresentable name would
-// reach the server and be closed with CloseCode.BadRequest.
+// accept at 20. Widen freely; never narrow.
 //
 // Letters and digits the in-game name renderer can actually draw, plus the
 // punctuation a name may carry. This is what lets José, Müller, Renée and
@@ -136,25 +108,12 @@ export type GameStartInfo = z.infer<typeof GameStartInfoSchema>;
 // a separate icon beside the name, never inline, so an emoji in the name
 // itself has no glyph at all.
 //
-// Regex source for the character class, not a finished pattern: the wire
-// schema, the free-form form rule and the persona sanitiser all need the same
-// set in different shapes, and a single source is what keeps them from
-// drifting apart by hand (which is how the charsets got out of step before).
+// Regex source for the character class, not a finished pattern: the engine
+// schema and the free-form form rule need the same set in different shapes,
+// and a single source is what keeps them from drifting apart by hand.
 export const RENDERABLE_NAME_ALNUM =
   "a-zA-Z0-9\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u00FF";
 export const RENDERABLE_NAME_CHARS = ` _.\\-${RENDERABLE_NAME_ALNUM}`;
-
-/** One renderable character. Used per-codepoint by the persona sanitiser. */
-export const RENDERABLE_NAME_CHAR_RE = new RegExp(
-  `^[${RENDERABLE_NAME_CHARS}]$`,
-  "u",
-);
-
-/** At least one letter or digit — punctuation alone is not a name. */
-export const RENDERABLE_NAME_HAS_ALNUM_RE = new RegExp(
-  `[${RENDERABLE_NAME_ALNUM}]`,
-  "u",
-);
 
 // Requires at least one non-space so a name is never all padding.
 export const UsernameSchema = z
@@ -215,34 +174,6 @@ export const OvertimeConfigSchema = z.object({
   startMinutes: zb.uint({ min: 1, max: 120 }).optional(),
 });
 
-// A lobby pool: several lobbies that arriving players are spread across, so
-// one advertised entry point can absorb more players than a single lobby
-// holds. Assignment is a hash of the joiner's identity (server/PoolRouting.ts),
-// so members need no shared state. Every member carries this same config and
-// recognises itself by its own game id.
-//
-// The advertised entry point is itself a member rather than an empty router:
-// a lobby nobody plays in would start, leave the Lobby phase, drop out of the
-// listing and be reaped, taking the entry point with it.
-export const PoolConfigSchema = z
-  .object({
-    id: z.string().min(1).max(64),
-    // z.lazy because ID is declared further down this file, and GameConfigSchema
-    // — which embeds this — is evaluated before that point.
-    siblings: z
-      .lazy(() => ID)
-      .array()
-      .min(1)
-      .max(64),
-  })
-  // Rejected rather than deduped: a repeated id holds more than one slot and
-  // draws proportionally more players than the rest.
-  .refine((pool) => new Set(pool.siblings).size === pool.siblings.length, {
-    error: "pool siblings must be unique",
-    path: ["siblings"],
-  });
-export type PoolConfig = z.infer<typeof PoolConfigSchema>;
-
 export const GameConfigSchema = z.object({
   gameMap: z.enum(GameMapType),
   difficulty: z.enum(Difficulty),
@@ -250,27 +181,9 @@ export const GameConfigSchema = z.object({
   donateTroops: z.boolean(), // Configures donations to humans only
   gameType: z.enum(GameType),
   gameMode: z.enum(GameMode),
-  rankedType: z.enum(RankedType).optional(), // Only set for ranked games.
   gameMapSize: z.enum(GameMapSize),
   doomsdayClock: DoomsdayClockConfigSchema.optional(),
   overtime: OvertimeConfigSchema.optional(),
-  publicGameModifiers: z
-    .object({
-      isCompact: z.boolean().optional(),
-      isRandomSpawn: z.boolean().optional(),
-      isCrowded: z.boolean().optional(),
-      isHardNations: z.boolean().optional(),
-      startingGold: zb.uint().optional(),
-      goldMultiplier: zb.float({ min: 0.1, max: 1000 }).optional(),
-      isAlliancesDisabled: z.boolean().optional(),
-      isPortsDisabled: z.boolean().optional(),
-      isNukesDisabled: z.boolean().optional(),
-      isSAMsDisabled: z.boolean().optional(),
-      isPeaceTime: z.boolean().optional(),
-      isWaterNukes: z.boolean().optional(),
-      isDoomsdayClock: z.boolean().optional(),
-    })
-    .optional(),
   nations: zb.union(
     [zb.uint({ min: 1, max: 400 }), z.enum(["default", "disabled"])],
     {
@@ -283,56 +196,16 @@ export const GameConfigSchema = z.object({
   instantBuild: z.boolean(),
   disableNavMesh: z.boolean().optional(),
   disableAlliances: z.boolean().nullable().optional(),
-  disableClanTags: z.boolean().optional(),
-  // Opt-in live game stats reporting for the admin bot. Off by default and has
-  // no UI — the admin bot sets it when creating tournament games, since it adds
-  // per-client traffic. See LiveStatsController / GameServer.handleLiveStats.
-  liveStatsEnabled: z.boolean().optional(),
-  anonymizeNames: z.boolean().optional(),
-  // While anonymizeNames is on, clientIDs the host has granted real-name
-  // visibility to (e.g. casters / observers). Everyone else stays anonymized.
-  nameReveals: z.string().array().optional(),
-  // Like nameReveals but keyed by stable account publicId (for automated hosts
-  // that only know publicIds at create_game); resolved to clientID at lookup.
-  nameRevealPublicIds: z.string().array().max(200).optional(),
   waterNukes: z.boolean().nullable().optional(),
   randomSpawn: z.boolean(),
-  maxPlayers: zb.uint().optional(),
-  // OFM: allowlist of publicIds allowed to join (admin-only, see create_game).
-  allowedPublicIds: z.array(z.string()).max(200).optional(),
-  // Only accounts the API reports as trusted (users/@me `trustTier`) may join.
-  // Enforced server-side at join (GameServer.joinClient); advertised in the
-  // lobby browser so a card can show a lock. No host UI yet: set through
-  // create_game / update_game_config.
-  trusted: z.boolean().optional(),
   maxTimerValue: zb.uint({ min: 1, max: 120 }).nullable().optional(), // In minutes
   customAllianceDuration: zb.uint({ max: 15 }).nullable().optional(), // In minutes; 0 disables alliances
-  startDelay: zb.uint({ max: 600 }).nullable().optional(), // In seconds
   spawnImmunityDuration: zb.uint().nullable().optional(), // In ticks
   disabledUnits: z.enum(UnitType).array().optional(),
   playerTeams: TeamCountConfigSchema.optional(),
   goldMultiplier: zb.float({ min: 0.1, max: 1000 }).nullable().optional(),
   startingGold: zb.uint({ max: 1000000000 }).nullable().optional(),
-  hostCheats: z
-    .object({
-      infiniteGold: z.boolean().optional(),
-      infiniteTroops: z.boolean().optional(),
-      goldMultiplier: zb.float({ min: 0.1, max: 1000 }).nullable().optional(),
-      startingGold: zb.uint({ max: 1000000000 }).nullable().optional(),
-    })
-    .optional(),
-  // Stripped from gameStartInfo and from the advertised lobby config: sibling
-  // ids are private lobby ids, which are join secrets.
-  pool: PoolConfigSchema.optional(),
 });
-
-// What a host sends in update_game_config. maxPlayers is the private-lobby
-// player cap: nullable so the host can lift it (null clears, undefined leaves
-// it alone), and at least 2 so a lobby can't be capped down to the host alone.
-export const GameConfigPatchSchema = GameConfigSchema.partial().extend({
-  maxPlayers: zb.uint({ min: 2, max: 1000 }).nullable().optional(),
-});
-export type GameConfigPatch = z.infer<typeof GameConfigPatchSchema>;
 
 export const TeamSchema = z.string();
 
@@ -365,31 +238,15 @@ export type Emoji = (typeof flattenedEmojiTable)[number];
 
 const EmojiSchema = zb.uint({ max: flattenedEmojiTable.length - 1 });
 
-// 8–10: today's ids are 8 chars; multi-server ids (docs/MultiServer.md) will
-// be 10 (instance letter + 9 random). The range ships ahead of the new format
-// so every deployed client/server validates the longer ids before any are
-// minted — old bundles reject unknown id lengths at the Zod layer.
 export const GAME_ID_REGEX = /^[A-Za-z0-9]{8,10}$/;
-
-export const isValidGameID = (value: string): boolean =>
-  GAME_ID_REGEX.test(value);
 
 export const ID = z.string().regex(GAME_ID_REGEX);
 
-// zbin dictionary for player clientIDs (see ZbinWire.ts): both peers seed it
-// from GameStartInfo.players, so an in-game player id costs one byte on the
-// binary wire. Validates exactly like ID; ids outside the roster (e.g.
-// ADMIN_BOT_CLIENT_ID) encode inline via the escape byte.
+// zbin dictionary for player clientIDs. Validates exactly like ID.
 export const CLIENT_ID_MAPPING = "clientId";
 export const MappedID = zb.mapped(CLIENT_ID_MAPPING, { regex: GAME_ID_REGEX });
 
 export const AllPlayersStatsSchema = z.record(ID, PlayerStatsSchema);
-
-export const QuickChatKeySchema = z.enum(
-  Object.entries(quickChatData).flatMap(([category, entries]) =>
-    entries.map((entry) => `${category}.${entry.key}`),
-  ) as [string, ...string[]],
-);
 
 //
 // Intents
@@ -508,52 +365,15 @@ export const DeleteUnitIntentSchema = z.object({
   unitId: zb.uint(),
 });
 
-export const QuickChatIntentSchema = z.object({
-  type: z.literal("quick_chat"),
-  recipient: MappedID,
-  quickChatKey: QuickChatKeySchema,
-  target: MappedID.optional(),
-});
-
-// Server-internal (rejected from clients). The player being marked is the
-// intent's own sender, so the target rides the stamped `clientID` that
-// StampedIntentSchema adds to every intent — declaring it here too would
-// write the same key twice on the binary wire.
-export const MarkDisconnectedIntentSchema = z.object({
-  type: z.literal("mark_disconnected"),
-  isDisconnected: z.boolean(),
-});
-
-export const KickPlayerIntentSchema = z.object({
-  type: z.literal("kick_player"),
-  // Either a live clientID (lobby / in-game kick) OR an account publicID, for
-  // callers that identify a player by account rather than per-session clientID;
-  // the server resolves the publicID to the live clientID. Exactly one is set.
-  targetClientID: MappedID.optional(),
-  targetPublicID: MappedID.optional(),
-});
-
 export const TogglePauseIntentSchema = z.object({
   type: z.literal("toggle_pause"),
   paused: z.boolean().default(false),
-});
-
-export const UpdateGameConfigIntentSchema = z.object({
-  type: z.literal("update_game_config"),
-  // zb.json: too rare and too config-shaped to deserve a binary layout —
-  // rides the binary wire as length-prefixed JSON.
-  config: zb.json(GameConfigPatchSchema),
-});
-
-export const ToggleGameStartTimerIntentSchema = z.object({
-  type: z.literal("toggle_game_start_timer"),
 });
 
 export const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
   SpawnIntentSchema,
-  MarkDisconnectedIntentSchema,
   BoatAttackIntentSchema,
   CancelBoatIntentSchema,
   AllianceRequestIntentSchema,
@@ -568,29 +388,19 @@ export const IntentSchema = z.discriminatedUnion("type", [
   EmbargoIntentSchema,
   EmbargoAllIntentSchema,
   MoveWarshipIntentSchema,
-  QuickChatIntentSchema,
   AllianceExtensionIntentSchema,
   DeleteUnitIntentSchema,
-  KickPlayerIntentSchema,
   TogglePauseIntentSchema,
-  UpdateGameConfigIntentSchema,
-  ToggleGameStartTimerIntentSchema,
 ]);
 
-// StampedIntent = Intent with server-stamped clientID (used in turns and execution)
+// StampedIntent = Intent with the clock-stamped clientID (used in turns and execution)
 export const StampedIntentSchema = zb.stamped(IntentSchema, {
   clientID: MappedID,
 });
 export type StampedIntent = Intent & { clientID: ClientID };
 
-// Placeholder clientID stamped onto admin-bot intents (HTTP admin API). The bot
-// is not a player, but toggle_pause — the one bot intent that reaches the turn
-// queue — needs a valid clientID. Chosen so it can never collide with a real id:
-// generateID() omits 0/l/I/O, and this contains I and O.
-export const ADMIN_BOT_CLIENT_ID: ClientID = "ADMINBOT";
-
 //
-// Server utility types
+// Game utility types
 //
 
 export const TurnSchema = z.object({
@@ -604,37 +414,13 @@ export const PlayerSchema = z.object({
   clientID: ID,
   username: UsernameSchema,
   clanTag: ClanTagSchema,
-  isLobbyCreator: z.boolean().optional(),
-  friends: z.array(ID).optional(),
-  // Server-stamped team slot for matchmade team games (index into the
-  // game's team list). Feeds deterministic team assignment, so it must be
-  // identical for every client (like clanTag/friends).
-  teamIndex: zb.uint().optional(),
 });
-
-// A purchased bot tribe name in use this game (active names are globally
-// unique, so the name alone identifies the tribe). Loose to mirror infra's
-// analytics-ingest schema — a field the API adds later flows through to the
-// record without a game-side change, instead of being silently stripped.
-export const TribeSchema = z
-  .object({
-    name: SafeString.min(1).max(64),
-  })
-  .loose();
-export type Tribe = z.infer<typeof TribeSchema>;
 
 export const GameStartInfoSchema = z.object({
   gameID: ID,
   lobbyCreatedAt: zb.uint(),
-  visibleAt: zb.uint().optional(),
-  listed: z.boolean().optional(),
   config: GameConfigSchema,
   players: PlayerSchema.array(),
-  // Purchased bot tribe names in use this game (public games only). Rides
-  // the analytics record to infra at game end for owner appearance stats.
-  // zb.json: TribeSchema is `.loose()`, and a positional binary layout would
-  // silently drop the passthrough keys that looseness exists to preserve.
-  tribes: z.array(zb.json(TribeSchema)).max(100).optional(),
 });
 
 export const WinnerSchema = z

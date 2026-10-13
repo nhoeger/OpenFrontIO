@@ -1,10 +1,6 @@
 import { GameStartInfo } from "@openfront/engine-api/Schemas";
 import {
   Cell,
-  GameMapSize,
-  GameMode,
-  GameType,
-  HumansVsNations,
   Nation,
   PlayerInfo,
   PlayerType,
@@ -53,12 +49,6 @@ export function createNationsForGame(
       ),
     );
 
-  const isCompactMap = gameStart.config.gameMapSize === GameMapSize.Compact;
-
-  const isHumansVsNations =
-    gameStart.config.gameMode === GameMode.Team &&
-    gameStart.config.playerTeams === HumansVsNations;
-
   const configNations = gameStart.config.nations;
   if (configNations === "disabled") {
     return [];
@@ -72,30 +62,6 @@ export function createNationsForGame(
       toNation,
       random,
     );
-  }
-
-  if (gameStart.config.gameType === GameType.Public) {
-    // For HvN, balance nation count to match human count
-    if (isHumansVsNations) {
-      return createRandomNations(
-        numHumans,
-        manifestNations,
-        additionalNations,
-        toNation,
-        random,
-      );
-    }
-
-    // For compact maps, use only 25% of nations (minimum 1)
-    if (isCompactMap) {
-      const targetCount = getCompactMapNationCount(
-        manifestNations.length,
-        true,
-      );
-      const shuffled = random.shuffleArray(manifestNations);
-      const slicedNations = shuffled.slice(0, targetCount);
-      return slicedNations.map(toNation);
-    }
   }
 
   return manifestNations.map(toNation);

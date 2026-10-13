@@ -122,18 +122,6 @@ export function gamePlayerTypeToEnum(t: PlayerType): PlayerTypeEnum {
   }
 }
 
-/** The engine's PlayerType for a renderer PlayerTypeEnum. */
-export function playerTypeFromEnum(t: PlayerTypeEnum): PlayerType {
-  switch (t) {
-    case PlayerTypeEnum.Human:
-      return PlayerType.Human;
-    case PlayerTypeEnum.Nation:
-      return PlayerType.Nation;
-    default:
-      return PlayerType.Bot;
-  }
-}
-
 // First-emission updates from the engine always include every field; these
 // builders assert non-null for that contract. Subsequent diffs are partial
 // and flow through applyStateUpdate() (PlayerStateUpdate).

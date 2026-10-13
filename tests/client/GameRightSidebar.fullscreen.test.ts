@@ -12,8 +12,6 @@ function fakeGame(): GameView {
     gameConfig: () => ({ maxTimerValue: undefined }),
     doomsdayClockConfig: () => ({ enabled: false }),
     overtimeConfig: () => ({ enabled: false, startMinutes: 0 }),
-    isReplay: () => false,
-    listed: true,
   };
   return {
     config: () => config,
@@ -56,7 +54,9 @@ async function flush(el: TestSidebar): Promise<void> {
 function fullscreenButton(el: TestSidebar): HTMLImageElement | undefined {
   const images = [
     ...el.renderRoot.querySelectorAll<HTMLImageElement>("img"),
-  ].filter((img) => img.alt !== "settings" && img.alt !== "exit");
+  ].filter(
+    (img) => !["settings", "exit", "replay", "play/pause"].includes(img.alt),
+  );
   return images[0];
 }
 
