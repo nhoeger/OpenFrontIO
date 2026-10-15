@@ -26,11 +26,13 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Dev-only: resources/public/ is served at the site root, as the build copies
-// it into static/. Vite's publicDir (resources/) would put it under /public/.
-function serveRootPublicDir(publicDir: string): Plugin {
+// Dev-only: serves a directory at the site root. Used for resources/public/
+// (the build copies it into static/, but a publicDir of resources/ would put it
+// under /public/) and for resources/ itself. Vite's own publicDir is off in dev
+// because it warns whenever JS imports a file from it, e.g. the atlas metadata.
+function serveRootDir(name: string, publicDir: string): Plugin {
   return {
-    name: "serve-root-public-dir",
+    name,
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         if (!req.url) return next();
@@ -183,7 +185,7 @@ export default defineConfig(({ mode }) => {
     },
     root: "./",
     base: "/",
-    publicDir: isProduction ? false : "resources",
+    publicDir: false,
 
     // Vite's JS preload helper (`__vitePreload`, used by dynamic import())
     // resolves a chunk's dependency list against `base`, so with base "/" the
@@ -213,7 +215,8 @@ export default defineConfig(({ mode }) => {
     plugins: [
       ...(!isProduction
         ? [
-            serveRootPublicDir(getPublicDir(resourcesDir)),
+            serveRootDir("serve-root-public-dir", getPublicDir(resourcesDir)),
+            serveRootDir("serve-resources-dir", resourcesDir),
             serveProprietaryDir(proprietaryDir, resourcesDir),
           ]
         : []),
