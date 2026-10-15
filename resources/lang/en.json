@@ -1,5 +1,7 @@
 {
   "build_menu": {
+    "bulk_max": "Max",
+    "bulk_title": "Per click: upgrade a structure several levels, or launch several atom bombs. Max buys as many as you can afford.",
     "desc": {
       "atom_bomb": "Small explosion",
       "city": "Increases max population",

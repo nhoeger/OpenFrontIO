@@ -39,7 +39,7 @@ describe("keybind capture over a live game", () => {
         attackRatio: 20,
         ghostStructure: null,
         rocketDirectionUp: true,
-        upgradeMultiplier: 1,
+        bulkMode: 1,
       },
       document.createElement("canvas"),
       eventBus,

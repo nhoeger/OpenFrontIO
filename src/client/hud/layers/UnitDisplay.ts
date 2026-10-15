@@ -9,6 +9,7 @@ import { renderNumber } from "@openfront/engine-lib/Format";
 import { EventBus } from "@openfront/shared/EventBus";
 import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
+import { BULK_MODES, BulkMode } from "../../BulkMode";
 import { Controller } from "../../Controller";
 import { ToggleStructureEvent } from "../../InputHandler";
 import { UIState } from "../../UIState";
@@ -214,7 +215,42 @@ export class UnitDisplay extends LitElement implements Controller {
             "mirv",
             this.keybinds["buildMIRV"]?.key ?? "0",
           )}
+          ${this.renderBulkSwitch()}
         </div>
+      </div>
+    `;
+  }
+
+  private bulkLabel(mode: BulkMode): string {
+    return mode === "max"
+      ? translateText("build_menu.bulk_max")
+      : translateText("build_menu.upgrade_amount", {
+          amount: mode.toString(),
+        });
+  }
+
+  private renderBulkSwitch() {
+    return html`
+      <div
+        class="flex items-stretch ml-1 border border-slate-500 rounded-sm overflow-hidden text-xs text-white"
+        title=${translateText("build_menu.bulk_title")}
+      >
+        ${BULK_MODES.map((mode) => {
+          const active = this.uiState.bulkMode === mode;
+          return html`<button
+            type="button"
+            class="px-1.5 cursor-pointer ${active
+              ? "bg-slate-400/40 font-bold"
+              : "hover:bg-gray-800 text-gray-400"}"
+            aria-pressed=${active}
+            @click=${() => {
+              this.uiState.bulkMode = mode;
+              this.requestUpdate();
+            }}
+          >
+            ${this.bulkLabel(mode)}
+          </button>`;
+        })}
       </div>
     `;
   }

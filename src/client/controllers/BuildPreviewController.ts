@@ -20,6 +20,7 @@ import {
   wouldNukeBreakAlliance,
 } from "@openfront/engine-lib/execution/NukeAlliance";
 import { EventBus } from "@openfront/shared/EventBus";
+import { resolveBulkAmount } from "../BulkMode";
 import { Controller } from "../Controller";
 import {
   ConfirmGhostStructureEvent,
@@ -480,10 +481,7 @@ export class BuildPreviewController implements Controller {
     }
 
     const isNuke = u.type === UnitType.AtomBomb;
-    const multiplier =
-      u.canUpgrade !== false || isNuke
-        ? (this.uiState.upgradeMultiplier ?? 1)
-        : 1;
+    const multiplier = this.bulkAmount(u);
     const cost = bulkCost(u, multiplier);
     // Drives the red cost label: gold short of the bulk total, or (for
     // bombs) fewer loaded silo tubes than the selected amount.
@@ -511,6 +509,22 @@ export class BuildPreviewController implements Controller {
       rangeRadius,
       rangeWarning: targetingAlly,
     };
+  }
+
+  /**
+   * How many levels (upgrades) or bombs (atom bomb) one click buys, per the
+   * HUD's bulk switch. New structures and every other unit are always one.
+   */
+  private bulkAmount(bu: BuildableUnit): number {
+    const isNuke = bu.type === UnitType.AtomBomb;
+    if (bu.canUpgrade === false && !isNuke) return 1;
+    const myPlayer = this.game.myPlayer();
+    return resolveBulkAmount(
+      bu,
+      this.uiState.bulkMode,
+      myPlayer?.gold() ?? 0n,
+      isNuke ? (myPlayer?.readyMissileCount() ?? 0) : undefined,
+    );
   }
 
   private isGhostReadyForConfirm(): boolean {
@@ -543,7 +557,7 @@ export class BuildPreviewController implements Controller {
         new SendUpgradeStructureIntentEvent(
           this.ghostUnit.buildableUnit.canUpgrade,
           this.ghostUnit.buildableUnit.type,
-          this.uiState.upgradeMultiplier || 1,
+          this.bulkAmount(this.ghostUnit.buildableUnit),
         ),
       );
       this.removeGhostStructure();
@@ -569,7 +583,7 @@ export class BuildPreviewController implements Controller {
           unitType,
           targetTile,
           rocketDirectionUp,
-          isNuke ? this.uiState.upgradeMultiplier || 1 : undefined,
+          isNuke ? this.bulkAmount(this.ghostUnit.buildableUnit) : undefined,
         ),
       );
       if (!shouldPreserveGhostAfterBuild(unitType)) {

@@ -58,7 +58,7 @@ export function createRenderer(
     attackRatio: 20,
     ghostStructure: null,
     rocketDirectionUp: true,
-    upgradeMultiplier: 1,
+    bulkMode: 1,
   };
 
   //hide when the game renders

@@ -105,7 +105,7 @@ describe("InputHandler AutoUpgrade", () => {
         attackRatio: 20,
         ghostStructure: null,
         rocketDirectionUp: true,
-        upgradeMultiplier: 1,
+        bulkMode: 1,
       },
       mockCanvas,
       eventBus,
@@ -1068,6 +1068,29 @@ describe("InputHandler AutoUpgrade", () => {
       expect(inputHandler["uiState"].ghostStructure).toBe(UnitType.MissileSilo);
     });
 
+    test("pressing the same build key twice no longer changes the bulk mode", () => {
+      inputHandler["uiState"].bulkMode = 1;
+      for (let i = 0; i < 2; i++) {
+        window.dispatchEvent(
+          new KeyboardEvent("keyup", { code: "Digit1", key: "1" }),
+        );
+      }
+      expect(inputHandler["uiState"].ghostStructure).toBe(UnitType.City);
+      expect(inputHandler["uiState"].bulkMode).toBe(1);
+    });
+
+    test("selecting another building keeps the chosen bulk mode", () => {
+      inputHandler["uiState"].bulkMode = "max";
+      window.dispatchEvent(
+        new KeyboardEvent("keyup", { code: "Digit1", key: "1" }),
+      );
+      window.dispatchEvent(
+        new KeyboardEvent("keyup", { code: "Digit2", key: "2" }),
+      );
+      expect(inputHandler["uiState"].ghostStructure).toBe(UnitType.Factory);
+      expect(inputHandler["uiState"].bulkMode).toBe("max");
+    });
+
     test("Numpad0 sets ghost structure to MIRV when buildMIRV is Digit0", () => {
       window.dispatchEvent(
         new KeyboardEvent("keyup", { code: "Numpad0", key: "0" }),
@@ -1377,7 +1400,7 @@ describe("InputHandler AutoUpgrade", () => {
           attackRatio: 20,
           ghostStructure: null,
           rocketDirectionUp: true,
-          upgradeMultiplier: 1,
+          bulkMode: 1,
         },
         mockCanvas,
         eventBus,
@@ -1406,7 +1429,7 @@ describe("InputHandler AutoUpgrade", () => {
           attackRatio: 20,
           ghostStructure: null,
           rocketDirectionUp: true,
-          upgradeMultiplier: 1,
+          bulkMode: 1,
         },
         mockCanvas,
         eventBus,
@@ -1444,7 +1467,7 @@ describe("InputHandler AutoUpgrade", () => {
           attackRatio: 20,
           ghostStructure: null,
           rocketDirectionUp: true,
-          upgradeMultiplier: 1,
+          bulkMode: 1,
         },
         mockCanvas,
         eventBus,
@@ -1760,7 +1783,7 @@ describe("InputHandler right-click cancels unit selection (#4692)", () => {
         attackRatio: 20,
         ghostStructure: null,
         rocketDirectionUp: true,
-        upgradeMultiplier: 1,
+        bulkMode: 1,
       },
       canvas,
       eventBus,
@@ -1875,7 +1898,7 @@ describe("InputHandler teardown (OPE-411)", () => {
         attackRatio: 20,
         ghostStructure: null,
         rocketDirectionUp: true,
-        upgradeMultiplier: 1,
+        bulkMode: 1,
       },
       canvas,
       eventBus,
